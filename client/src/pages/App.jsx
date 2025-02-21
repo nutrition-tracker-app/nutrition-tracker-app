@@ -1,8 +1,4 @@
 import React from 'react'; // good practice
-import ReactDOM from 'react-dom/client'; // render app into browser
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // handle frontend routing
-
-import '../App.css';
 
 function App() {
   return (
