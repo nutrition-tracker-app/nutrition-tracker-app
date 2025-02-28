@@ -34,9 +34,12 @@ function NavBar() {
 
       {/* Sign-in Button */}
       <div className="hidden md:flex items-center space-x-3">
-        <button className="border border-black px-3 py-1 rounded-md shadow-sm text-gray-900 bg-white hover:bg-[#DECEFF]">
+        <Link
+          to="/login"
+          className="border border-black px-3 py-1 rounded-md shadow-sm text-gray-900 bg-white hover:bg-[#DECEFF]"
+        >
           Sign in
-        </button>
+        </Link>
       </div>
 
       {/* Humburger Button */}
@@ -59,9 +62,12 @@ function NavBar() {
           <a href="#" className="py-1 hover:text-gray-400">
             Contact
           </a>
-          <button className="border border-black px-3 py-1 rounded-md shadow-sm text-gray-900 bg-white hover:bg-[#DECEFF] mt-2">
+          <Link
+            to="/login"
+            className="border border-black px-3 py-1 rounded-md shadow-sm text-gray-900 bg-white hover:bg-[#DECEFF] mt-2"
+          >
             Sign in
-          </button>
+          </Link>
         </div>
       )}
     </nav>

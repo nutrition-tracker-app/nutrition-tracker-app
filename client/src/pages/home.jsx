@@ -1,6 +1,7 @@
 import React from 'react';
 import NavBar from '../components/navbar';
 import Footer from '../components/footer';
+import { Link } from 'react-router-dom';
 
 function Home() {
   return (
@@ -25,9 +26,14 @@ function Home() {
         </div>
 
         {/* Sign Up Button */}
-        <button className="border border-black mt-6 bg-[#DECEFF] text-black px-6 py-2 rounded-md shadow-md text-lg font-bold hover:underline">
-          Sign up now!
-        </button>
+        <div className="mt-10">
+          <Link
+            to="/signup"
+            className="border border-black bg-[#DECEFF] text-black px-6 py-2 rounded-md shadow-md text-lg font-bold hover:underline"
+          >
+            Sign up now!
+          </Link>
+        </div>
       </div>
 
       <Footer />

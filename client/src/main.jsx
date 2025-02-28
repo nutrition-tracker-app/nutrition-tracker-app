@@ -10,6 +10,9 @@ import './index.css';
 // pages
 import App from './pages/App.jsx';
 import Home from './pages/home.jsx';
+import Login from './pages/login.jsx';
+import Signup from './pages/signup.jsx';
+import Dashboard from './pages/dashboard.jsx';
 
 // create root of app and render it into the root div in index.html
 createRoot(document.getElementById('root')).render(
@@ -17,7 +20,9 @@ createRoot(document.getElementById('root')).render(
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/app" element={<App />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </Router>
   </StrictMode>

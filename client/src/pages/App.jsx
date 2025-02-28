@@ -5,7 +5,6 @@ function App() {
     <>
       <div>
         <h1>Welcome to the App Page</h1>
-        <p>This is the App page inside your Nutrition Tracker.</p>
       </div>
     </>
   );
