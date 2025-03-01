@@ -28,7 +28,6 @@ A comprehensive web application for tracking nutritional intake, managing meal h
   - [Theming and Dark Mode](#theming-and-dark-mode)
   - [Navigation](#navigation)
     - [Protected Routes](#protected-routes)
-  - [Contributing](#contributing)
   - [Troubleshooting](#troubleshooting)
     - [Common Issues](#common-issues)
 
@@ -497,16 +496,6 @@ function Dashboard() {
   // Rest of component...
 }
 ```
-
-## Contributing
-
-We welcome contributions to improve the Nutrition Tracker 9000 application! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature-name`
-3. Commit your changes: `git commit -m 'Add some feature'`
-4. Push to the branch: `git push origin feature/your-feature-name`
-5. Submit a pull request
 
 ## Troubleshooting
 
