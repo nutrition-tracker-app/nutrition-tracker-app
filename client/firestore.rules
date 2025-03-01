@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to read and write only their own data
+    match /users/{userId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+    }
+    
+    // Allow users to read, create, update and delete only their own meals
+    match /meals/{mealId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Allow reading cached food data by anyone who is authenticated
+    match /cachedFoods/{foodId} {
+      allow read: if request.auth != null;
+    }
+  }
+}
