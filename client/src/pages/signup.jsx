@@ -7,6 +7,7 @@ import NavBar2 from '../components/navbar2';
 import Footer from '../components/footer';
 import useAuth from '../context/getUseAuth';
 import { createUserProfile } from '../services/firestoreService';
+import setupDatabase from '../utils/databaseSetup';
 
 function Signup() {
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +38,11 @@ function Signup() {
           photoURL,
           isNewUser: true
         });
+        
+        // Set up the database with initial data for the new user
+        console.log('Setting up database for new user...');
+        const setupResult = await setupDatabase(uid);
+        console.log('Database setup result:', setupResult);
       }
       
       // Successful signup will trigger the useEffect above
