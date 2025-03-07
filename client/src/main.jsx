@@ -14,9 +14,6 @@ import { AuthProvider } from './context/authContext';
 import { SettingsProvider } from './context/settingsContext';
 
 // pages
-/* eslint-disable no-unused-vars */
-import App from './pages/App.jsx';
-/* eslint-enable no-unused-vars */
 import Home from './pages/home.jsx';
 import Login from './pages/login.jsx';
 import Signup from './pages/signup.jsx';
