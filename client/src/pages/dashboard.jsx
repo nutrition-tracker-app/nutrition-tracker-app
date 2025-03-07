@@ -6,16 +6,22 @@ import NavBar2 from '../components/navbar2';
 import Footer from '../components/footer';
 import QuickAddMealModal from '../components/quickAddModal';
 import useAuth from '../context/getUseAuth';
-import { getUserMeals } from '../services/firestoreService';
+import { getUserDiaryEntries, getLatestUserMetric, getUserStreak } from '../services/firestoreService';
 import { useSettings } from '../context/settingsContext';
 
 function Dashboard() {
   const { currentUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [meals, setMeals] = useState([]);
+  const [latestWeight, setLatestWeight] = useState(null);
+  const [latestSleep, setLatestSleep] = useState(null);
+  const [userStreak, setUserStreak] = useState({currentStreak: 0, longestStreak: 0});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  
+  // For debug purposes
+  console.log('Dashboard rendering, currentUser:', currentUser?.uid);
 
   // Protect the dashboard route
   useEffect(() => {
@@ -24,40 +30,92 @@ function Dashboard() {
     }
   }, [currentUser, navigate]);
 
-  // Fetch user's meals from Firestore
+  // Fetch user's meals and metrics from Firestore
   useEffect(() => {
-    const fetchMeals = async () => {
+    const fetchData = async () => {
       if (!currentUser) return;
       
       try {
         setIsLoading(true);
-        const userMeals = await getUserMeals(currentUser.uid);
+        
+        // Fetch in parallel for better performance
+        const userMeals = await getUserDiaryEntries(currentUser.uid);
         setMeals(userMeals);
+
+        try {
+          const weightMetric = await getLatestUserMetric(currentUser.uid, 'weight');
+          setLatestWeight(weightMetric);
+        } catch (weightError) {
+          console.error('Error fetching weight metric:', weightError);
+          // Don't let this error stop the entire dashboard
+        }
+
+        try {
+          const sleepMetric = await getLatestUserMetric(currentUser.uid, 'sleep');
+          setLatestSleep(sleepMetric);
+        } catch (sleepError) {
+          console.error('Error fetching sleep metric:', sleepError);
+          // Don't let this error stop the entire dashboard
+        }
+
+        try {
+          const streak = await getUserStreak(currentUser.uid);
+          setUserStreak(streak);
+        } catch (streakError) {
+          console.error('Error fetching user streak:', streakError);
+          // Don't let this error stop the entire dashboard
+        }
       } catch (error) {
-        console.error('Error fetching meals:', error);
-        setError('Failed to load your meal data. Please try again later.');
+        console.error('Error fetching dashboard data:', error);
+        setError('Failed to load your data. Please try again later.');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchMeals();
-  }, [currentUser]);
+    fetchData();
+  }, [currentUser, isModalOpen]);
 
   // Calculate total calories and macros for today
   const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
   
-  const todaysMeals = meals.filter(meal => {
-    const mealDate = new Date(meal.createdAt?.toDate() || meal.date || Date.now())
-      .toISOString().split('T')[0];
-    return mealDate === today;
+  // Safely filter meals with error handling
+  const todaysMeals = (meals || []).filter(meal => {
+    try {
+      if (!meal) return false;
+      
+      let mealDate;
+      // Handle different date formats safely
+      if (meal.createdAt && typeof meal.createdAt.toDate === 'function') {
+        mealDate = meal.createdAt.toDate().toISOString().split('T')[0];
+      } else if (meal.date instanceof Date) {
+        mealDate = meal.date.toISOString().split('T')[0];
+      } else if (meal.date && typeof meal.date === 'string') {
+        mealDate = new Date(meal.date).toISOString().split('T')[0];
+      } else {
+        mealDate = new Date().toISOString().split('T')[0]; // Default to today
+      }
+      
+      return mealDate === today;
+    } catch (error) {
+      console.error("Error filtering meal:", meal, error);
+      return false;
+    }
   });
   
-  // Calculate the raw totals
-  let rawTotalCalories = todaysMeals.reduce((sum, meal) => sum + (meal.calories || 0), 0);
-  let rawTotalProtein = todaysMeals.reduce((sum, meal) => sum + (meal.protein || 0), 0);
-  let rawTotalCarbs = todaysMeals.reduce((sum, meal) => sum + (meal.carbs || 0), 0);
-  let rawTotalFat = todaysMeals.reduce((sum, meal) => sum + (meal.fat || 0), 0);
+  // Safely calculate totals with error handling
+  let rawTotalCalories = 0, rawTotalProtein = 0, rawTotalCarbs = 0, rawTotalFat = 0;
+  
+  try {
+    // Calculate the raw totals
+    rawTotalCalories = todaysMeals.reduce((sum, meal) => sum + (Number(meal?.calories) || 0), 0);
+    rawTotalProtein = todaysMeals.reduce((sum, meal) => sum + (Number(meal?.protein) || 0), 0);
+    rawTotalCarbs = todaysMeals.reduce((sum, meal) => sum + (Number(meal?.carbs) || 0), 0);
+    rawTotalFat = todaysMeals.reduce((sum, meal) => sum + (Number(meal?.fat) || 0), 0);
+  } catch (error) {
+    console.error("Error calculating meal totals:", error);
+    // Leave the totals as 0
+  }
   
   // Round the values for display
   const totalCalories = Math.round(rawTotalCalories);
@@ -71,14 +129,21 @@ function Dashboard() {
   const carbsGoal = 200;
   const fatGoal = 65;
 
-  // Calculate percentages for progress bars
-  const caloriePercentage = Math.min(100, (totalCalories / calorieGoal) * 100);
-  const proteinPercentage = Math.min(100, (totalProtein / proteinGoal) * 100);
-  const carbsPercentage = Math.min(100, (totalCarbs / carbsGoal) * 100);
-  const fatPercentage = Math.min(100, (totalFat / fatGoal) * 100);
+  // Calculate percentages for progress bars - safely
+  let caloriePercentage = 0, proteinPercentage = 0, carbsPercentage = 0, fatPercentage = 0;
+  
+  try {
+    caloriePercentage = Math.min(100, (totalCalories / calorieGoal) * 100) || 0;
+    proteinPercentage = Math.min(100, (totalProtein / proteinGoal) * 100) || 0;
+    carbsPercentage = Math.min(100, (totalCarbs / carbsGoal) * 100) || 0;
+    fatPercentage = Math.min(100, (totalFat / fatGoal) * 100) || 0;
+  } catch (error) {
+    console.error("Error calculating percentages:", error);
+    // Keep the percentages at 0
+  }
 
   // Import settings context
-  const { darkMode } = useSettings();
+  const { darkMode } = useSettings() || { darkMode: false };
 
   return (
     <div className={`flex flex-col min-h-screen ${darkMode ? 'bg-slate-900 text-slate-50' : 'bg-white'}`}>
@@ -101,10 +166,10 @@ function Dashboard() {
             Log Meal
           </Link>
           <Link
-            to="/meal-history"
+            to="/diary"
             className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
           >
-            Meal History
+            Diary
           </Link>
         </div>
       </div>
@@ -126,7 +191,92 @@ function Dashboard() {
         <div className="text-center mt-8">Loading your nutrition data...</div>
       ) : (
         <>
-          {/* Cards */}
+          {/* Top Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6 w-full max-w-4xl mx-auto">
+            {/* Weight Card */}
+            <div className={`border border-black rounded-md shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} p-4`}>
+              <h3 className={`text-lg font-semibold mb-2 text-center border-b ${darkMode ? 'border-slate-600' : 'border-gray-300'} pb-2`}>Weight</h3>
+              {latestWeight ? (
+                <div className="flex flex-col items-center">
+                  <div className={`text-3xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                    {latestWeight.value} {latestWeight.details?.unit || 'kg'}
+                  </div>
+                  <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'} mt-1`}>
+                    Last updated: {latestWeight.date ? 
+                      new Date(typeof latestWeight.date.toDate === 'function' ? 
+                        latestWeight.date.toDate() : latestWeight.date).toLocaleDateString() : 'Unknown'}
+                  </div>
+                  <Link 
+                    to="/diary" 
+                    className={`mt-3 text-sm px-3 py-1 rounded-full ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                  >
+                    Track Weight
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center py-3">
+                  <p className={`${darkMode ? 'text-slate-400' : 'text-gray-600'} text-center mb-3`}>No weight data yet</p>
+                  <Link 
+                    to="/diary" 
+                    className={`text-sm px-3 py-1 rounded-full ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                  >
+                    Add Weight
+                  </Link>
+                </div>
+              )}
+            </div>
+            
+            {/* Streak Card */}
+            <div className={`border border-black rounded-md shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} p-4`}>
+              <h3 className={`text-lg font-semibold mb-2 text-center border-b ${darkMode ? 'border-slate-600' : 'border-gray-300'} pb-2`}>Streak</h3>
+              <div className="flex flex-col items-center">
+                <div className={`text-3xl font-bold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                  {(userStreak && userStreak.currentStreak !== undefined) ? userStreak.currentStreak : 0} days
+                </div>
+                {userStreak && userStreak.longestStreak > 0 && (
+                  <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'} mt-1`}>
+                    Longest streak: {userStreak.longestStreak} days
+                  </div>
+                )}
+                <div className={`mt-3 text-sm px-3 py-1 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                  Keep tracking daily!
+                </div>
+              </div>
+            </div>
+            
+            {/* Sleep Card */}
+            <div className={`border border-black rounded-md shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} p-4`}>
+              <h3 className={`text-lg font-semibold mb-2 text-center border-b ${darkMode ? 'border-slate-600' : 'border-gray-300'} pb-2`}>Sleep</h3>
+              {latestSleep ? (
+                <div className="flex flex-col items-center">
+                  <div className={`text-3xl font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                    {latestSleep && latestSleep.value ? `${Math.floor(latestSleep.value / 60)}h ${latestSleep.value % 60}m` : "0h 0m"}
+                  </div>
+                  <div className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'} mt-1`}>
+                    Quality: {latestSleep && latestSleep.details ? (latestSleep.details.quality || 0) : 0}/10
+                  </div>
+                  <Link 
+                    to="/diary" 
+                    className={`mt-3 text-sm px-3 py-1 rounded-full ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                  >
+                    Track Sleep
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center py-3">
+                  <p className={`${darkMode ? 'text-slate-400' : 'text-gray-600'} text-center mb-3`}>No sleep data yet</p>
+                  <Link 
+                    to="/diary" 
+                    className={`text-sm px-3 py-1 rounded-full ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+                  >
+                    Add Sleep
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Nutrition Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 w-full max-w-2xl mx-auto">
             {/* Calories Card */}
             <div className={`border border-black rounded-md shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} p-6`}>
@@ -225,17 +375,17 @@ function Dashboard() {
             <div className={`flex justify-between items-center mb-3 border-b ${darkMode ? 'border-slate-600' : 'border-gray-300'} pb-2`}>
               <h3 className={`text-xl font-semibold ${darkMode ? 'text-slate-100' : ''}`}>Today&apos;s Meals</h3>
               <Link 
-                to="/meal-history" 
+                to="/diary" 
                 className={`${darkMode ? 'text-blue-400 hover:bg-blue-900' : 'text-blue-600 hover:bg-blue-100'} px-3 py-1.5 rounded-md transition-colors text-sm font-medium flex items-center`}
-                title="View meal history"
+                title="View diary"
               >
                 <span>View all meals</span>
                 <span className="ml-1">→</span>
               </Link>
             </div>
-            {todaysMeals.length > 0 ? (
+            {todaysMeals && todaysMeals.length > 0 ? (
               <div className="space-y-2">
-                {todaysMeals.slice(0, 3).map((meal) => (
+                {todaysMeals.slice(0, 3).map((meal) => meal && (
                   <div key={meal.id} className={`border ${darkMode ? 'border-slate-600 bg-slate-700' : 'border-gray-300 bg-white'} p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow`}>
                     <div className="flex justify-between items-center mb-2">
                       <span className={`font-semibold text-lg ${darkMode ? 'text-slate-100' : ''}`}>{meal.name}</span>

@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 /* eslint-enable no-unused-vars */
-import { addMeal, getUserMeals } from '../services/firestoreService';
+import { addMeal, getUserDiaryEntries } from '../services/firestoreService';
 import PropTypes from 'prop-types';
 import { searchFoods, extractNutrients } from '../services/foodApiService';
 
@@ -22,25 +22,31 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
     calories: 0,
     protein: 0,
     carbs: 0,
-    fat: 0
+    fat: 0,
+    amount: 100, // Default serving size
+    category: 'uncategorized'
   });
 
   // Load recent meals when component mounts
   useEffect(() => {
     const loadRecentMeals = async () => {
-      if (!userId) return;
+      if (!userId || !isOpen) return;
       
       try {
-        const meals = await getUserMeals(userId);
-        setRecentMeals(meals.slice(0, 5)); // Get most recent 5 meals
+        const meals = await getUserDiaryEntries(userId);
+        if (Array.isArray(meals)) {
+          setRecentMeals(meals.slice(0, 5)); // Get most recent 5 meals
+        } else {
+          console.error('Expected meals to be an array but got:', typeof meals);
+          setRecentMeals([]);
+        }
       } catch (error) {
         console.error('Error loading recent meals:', error);
+        setRecentMeals([]);
       }
     };
     
-    if (isOpen) {
-      loadRecentMeals();
-    }
+    loadRecentMeals();
   }, [userId, isOpen]);
 
   // Reset form when modal is closed
@@ -51,7 +57,9 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         calories: 0,
         protein: 0,
         carbs: 0,
-        fat: 0
+        fat: 0,
+        amount: 100,
+        category: 'uncategorized'
       });
       setSearchQuery('');
       setSearchResults([]);
@@ -65,14 +73,27 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
   // Handle input changes
   const handleChange = (e) => {
     // If we're in database mode and user tries to edit values, switch to custom mode
-    if (entryMode === 'database' && e.target.name !== 'name') {
+    if (entryMode === 'database' && e.target.name !== 'name' && e.target.name !== 'category') {
       setEntryMode('custom');
     }
     
     const { name, value } = e.target;
+    
+    // Handle different field types
+    let processedValue;
+    if (name === 'name' || name === 'category') {
+      // For text fields or selects
+      processedValue = value;
+    } else {
+      // For numeric fields
+      processedValue = Number(value) || 0;
+    }
+    
+    console.log(`Changing ${name} to:`, processedValue);
+    
     setMealData({
       ...mealData,
-      [name]: name === 'name' ? value : Number(value) || 0
+      [name]: processedValue
     });
   };
 
@@ -115,7 +136,9 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         calories: nutrients.calories || 0,
         protein: nutrients.protein || 0,
         carbs: nutrients.carbs || 0,
-        fat: nutrients.fat || 0
+        fat: nutrients.fat || 0,
+        amount: mealData.amount, // Preserve the current amount
+        category: mealData.category // Preserve the current category
       });
       
       // Clear search
@@ -133,7 +156,9 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       calories: meal.calories,
       protein: meal.protein,
       carbs: meal.carbs,
-      fat: meal.fat
+      fat: meal.fat,
+      amount: meal.amount || 100,
+      category: meal.category || 'uncategorized'
     });
     setEntryMode('custom');
     setSelectedFood(null);
@@ -161,10 +186,19 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       setIsLoading(true);
       setError('');
       
-      await addMeal(userId, {
+      // Ensure amount is a proper number
+      const finalAmount = Number(mealData.amount) || 100;
+      
+      // Scale nutrients according to amount if needed
+      const nutrients = {
         ...mealData,
+        amount: finalAmount,
         date: new Date() // Store the current date
-      });
+      };
+      
+      console.log("Adding meal with data:", nutrients);
+      console.log("Selected meal category:", nutrients.category);
+      await addMeal(userId, nutrients);
       
       setSuccess(true);
       
@@ -175,7 +209,9 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
           calories: 0,
           protein: 0,
           carbs: 0,
-          fat: 0
+          fat: 0,
+          amount: 100,
+          category: 'uncategorized'
         });
         setSuccess(false);
         onClose();
@@ -336,7 +372,31 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             placeholder="Enter meal name"
           />
 
-          <label className="block font-medium text-blue-600">Calories:</label>
+          <div className="flex justify-between items-center mt-3">
+            <div className="w-1/2 pr-1">
+              <label className="block font-medium text-purple-600">Amount:</label>
+              <input
+                type="number"
+                name="amount"
+                value={mealData.amount}
+                onChange={handleChange}
+                min="1"
+                className="bg-white w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors"
+                placeholder="100"
+              />
+            </div>
+            <div className="w-1/2 pl-1">
+              <label className="block font-medium text-gray-500">Unit:</label>
+              <input
+                type="text"
+                value="g"
+                disabled
+                className="bg-gray-100 w-full px-3 py-2 border border-gray-300 rounded-md opacity-70 outline-none"
+              />
+            </div>
+          </div>
+
+          <label className="block font-medium text-blue-600 mt-2">Calories:</label>
           <input
             type="number"
             name="calories"
@@ -386,6 +446,20 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             className={`bg-white w-full px-3 py-2 border ${entryMode === 'database' ? 'border-yellow-300 bg-yellow-50' : 'border-gray-400'} rounded-md ${entryMode === 'database' ? 'opacity-90' : 'focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500'} outline-none transition-colors`}
             placeholder="0"
           />
+          
+          <label className="block font-medium text-purple-600 mt-3">Meal Category:</label>
+          <select
+            name="category"
+            value={mealData.category}
+            onChange={handleChange}
+            className="bg-white w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors"
+          >
+            <option value="uncategorized">Uncategorized</option>
+            <option value="breakfast">Breakfast</option>
+            <option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option>
+            <option value="snack">Snack</option>
+          </select>
         </div>
 
         {/* Modal Buttons */}

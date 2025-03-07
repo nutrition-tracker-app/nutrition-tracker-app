@@ -5,7 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import NavBar2 from '../components/navbar2';
 import Footer from '../components/footer';
 import useAuth from '../context/getUseAuth';
-import { getUserMeals, deleteMeal, updateMeal } from '../services/firestoreService';
+import { getUserDiaryEntries, deleteDiaryEntry, updateDiaryEntry } from '../services/firestoreService';
 import QuickAddMealModal from '../components/quickAddModal';
 import EditableContent from '../components/editableContent';
 import { useSettings } from '../context/settingsContext';
@@ -39,7 +39,7 @@ function MealHistory() {
       setError(''); // Clear any previous errors
       
       console.log('Fetching meals for user ID:', currentUser.uid);
-      const userMeals = await getUserMeals(currentUser.uid);
+      const userMeals = await getUserDiaryEntries(currentUser.uid);
       console.log(`Fetched ${userMeals.length} meals`);
       
       setMeals(userMeals);
@@ -113,7 +113,7 @@ function MealHistory() {
       }
       
       // Update the meal in Firestore
-      await updateMeal(mealId, { 
+      await updateDiaryEntry(mealId, { 
         [field]: field === 'name' ? value : Number(value) 
       });
       
@@ -165,7 +165,7 @@ function MealHistory() {
     
     try {
       console.log('Deleting meal with ID:', mealId);
-      await deleteMeal(mealId);
+      await deleteDiaryEntry(mealId);
       console.log('Meal deleted successfully');
       
       // Update local state to reflect deletion

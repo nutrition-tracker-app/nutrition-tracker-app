@@ -48,18 +48,18 @@ function NavBar() {
 
       {/* Center - Navigation Links */}
       <div className={`hidden md:flex px-7 space-x-8 ${darkMode ? 'text-slate-100' : 'text-black'} font-medium ml-auto`}>
-        <a href="#" className={`nav-link-hover ${darkMode ? 'hover:text-green-300' : 'hover:text-green-600'} transition-colors duration-200 py-1`}>
+        <Link to="/" className={`nav-link-hover ${darkMode ? 'hover:text-green-300' : 'hover:text-green-600'} transition-colors duration-200 py-1`}>
           About Us
-        </a>
+        </Link>
         <Link to="/dashboard" className={`nav-link-hover ${darkMode ? 'hover:text-green-300' : 'hover:text-green-600'} transition-colors duration-200 py-1 flex items-center`}>
           <span className="mr-1">📊</span> Dashboard
         </Link>
-        <a href="#" className={`nav-link-hover ${darkMode ? 'hover:text-green-300' : 'hover:text-green-600'} transition-colors duration-200 py-1`}>
-          Resources
-        </a>
-        <a href="#" className={`nav-link-hover ${darkMode ? 'hover:text-green-300' : 'hover:text-green-600'} transition-colors duration-200 py-1`}>
-          Contact
-        </a>
+        <Link to="/diary" className={`nav-link-hover ${darkMode ? 'hover:text-green-300' : 'hover:text-green-600'} transition-colors duration-200 py-1`}>
+          Diary
+        </Link>
+        <Link to="/settings" className={`nav-link-hover ${darkMode ? 'hover:text-green-300' : 'hover:text-green-600'} transition-colors duration-200 py-1`}>
+          Settings
+        </Link>
       </div>
 
       {/* Sign-in Button or User Profile */}
@@ -82,38 +82,32 @@ function NavBar() {
               </div>
             )}
             <span className={`text-sm font-medium ${darkMode ? 'text-slate-100' : 'text-gray-800'}`}>{currentUser.displayName || currentUser.email}</span>
-            <a
-              href="/dashboard"
-              rel="noopener noreferrer" 
-              role="button"
+            <Link
+              to="/dashboard"
               className={`px-4 py-1.5 rounded-lg shadow-md transition-all duration-200 ${
                 darkMode 
                   ? 'bg-green-600 text-white hover:bg-green-500' 
                   : 'bg-green-500 text-white hover:bg-green-600'
               } flex items-center cursor-pointer`}
-              onClick={() => window.location.href = '/dashboard'}
             >
               <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M4 13H10C10.55 13 11 12.55 11 12V4C11 3.45 10.55 3 10 3H4C3.45 3 3 3.45 3 4V12C3 12.55 3.45 13 4 13ZM4 21H10C10.55 21 11 20.55 11 20V16C11 15.45 10.55 15 10 15H4C3.45 15 3 15.45 3 16V20C3 20.55 3.45 21 4 21ZM14 21H20C20.55 21 21 20.55 21 20V12C21 11.45 20.55 11 20 11H14C13.45 11 13 11.45 13 12V20C13 20.55 13.45 21 14 21ZM13 4V8C13 8.55 13.45 9 14 9H20C20.55 9 21 8.55 21 8V4C21 3.45 20.55 3 20 3H14C13.45 3 13 3.45 13 4Z" fill="currentColor"/>
               </svg>
               Dashboard
-            </a>
-            <a
-              href="/meal-history"
-              rel="noopener noreferrer"
-              role="button"
+            </Link>
+            <Link
+              to="/meal-history"
               className={`px-3 py-1.5 rounded-lg shadow-md transition-all duration-200 ${
                 darkMode 
                   ? 'bg-slate-700 text-slate-100 hover:bg-slate-600' 
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
               } flex items-center cursor-pointer`}
-              onClick={() => window.location.href = '/meal-history'}
             >
               <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2ZM16.2 16.2L11 13V7H12.5V12.2L17 14.9L16.2 16.2Z" fill="currentColor"/>
               </svg>
               Meal History
-            </a>
+            </Link>
           </div>
         ) : (
           <Link
@@ -155,13 +149,13 @@ function NavBar() {
             : 'bg-gradient-to-b from-[#efffce] to-[#d5ffaa] border-t border-b border-green-300'
         } flex flex-col py-4 shadow-xl md:hidden z-50`}>
           <div className="container mx-auto px-6 flex flex-col space-y-3">
-            <a href="#" className={`py-2 px-3 rounded-lg ${
+            <Link to="/" className={`py-2 px-3 rounded-lg ${
               darkMode 
                 ? 'hover:bg-green-900/30 hover:text-green-300' 
                 : 'hover:bg-green-100 hover:text-green-800'
             } transition-colors duration-200`}>
               About Us
-            </a>
+            </Link>
             <Link to="/dashboard" className={`py-2 px-3 rounded-lg ${
               darkMode 
                 ? 'hover:bg-green-900/30 hover:text-green-300' 
@@ -169,20 +163,20 @@ function NavBar() {
             } transition-colors duration-200 flex items-center`}>
               <span className="mr-1">📊</span> Dashboard
             </Link>
-            <a href="#" className={`py-2 px-3 rounded-lg ${
+            <Link to="/diary" className={`py-2 px-3 rounded-lg ${
               darkMode 
                 ? 'hover:bg-green-900/30 hover:text-green-300' 
                 : 'hover:bg-green-100 hover:text-green-800'
             } transition-colors duration-200`}>
-              Resources
-            </a>
-            <a href="#" className={`py-2 px-3 rounded-lg ${
+              Diary
+            </Link>
+            <Link to="/settings" className={`py-2 px-3 rounded-lg ${
               darkMode 
                 ? 'hover:bg-green-900/30 hover:text-green-300' 
                 : 'hover:bg-green-100 hover:text-green-800'
             } transition-colors duration-200`}>
-              Contact
-            </a>
+              Settings
+            </Link>
             
             <div className="border-t border-dashed my-2 opacity-40"></div>
             
@@ -209,8 +203,8 @@ function NavBar() {
                   </span>
                 </div>
                 
-                <a
-                  href="/dashboard"
+                <Link
+                  to="/dashboard"
                   className={`flex items-center py-2 px-3 rounded-lg ${
                     darkMode 
                       ? 'bg-green-600/30 text-green-300 hover:bg-green-600/50' 
@@ -218,17 +212,16 @@ function NavBar() {
                   } transition-colors duration-200 cursor-pointer`}
                   onClick={() => {
                     setIsOpen(false);
-                    window.location.href = '/dashboard';
                   }}
                 >
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M4 13H10C10.55 13 11 12.55 11 12V4C11 3.45 10.55 3 10 3H4C3.45 3 3 3.45 3 4V12C3 12.55 3.45 13 4 13ZM4 21H10C10.55 21 11 20.55 11 20V16C11 15.45 10.55 15 10 15H4C3.45 15 3 15.45 3 16V20C3 20.55 3.45 21 4 21ZM14 21H20C20.55 21 21 20.55 21 20V12C21 11.45 20.55 11 20 11H14C13.45 11 13 11.45 13 12V20C13 20.55 13.45 21 14 21ZM13 4V8C13 8.55 13.45 9 14 9H20C20.55 9 21 8.55 21 8V4C21 3.45 20.55 3 20 3H14C13.45 3 13 3.45 13 4Z" fill="currentColor"/>
                   </svg>
                   Dashboard
-                </a>
+                </Link>
                 
-                <a
-                  href="/meal-history"
+                <Link
+                  to="/meal-history"
                   className={`flex items-center py-2 px-3 rounded-lg ${
                     darkMode 
                       ? 'bg-slate-700/50 text-slate-200 hover:bg-slate-700/70' 
@@ -236,14 +229,13 @@ function NavBar() {
                   } transition-colors duration-200 cursor-pointer`}
                   onClick={() => {
                     setIsOpen(false);
-                    window.location.href = '/meal-history';
                   }}
                 >
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2ZM16.2 16.2L11 13V7H12.5V12.2L17 14.9L16.2 16.2Z" fill="currentColor"/>
                   </svg>
                   Meal History
-                </a>
+                </Link>
               </div>
             ) : (
               <Link
