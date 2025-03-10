@@ -10,6 +10,7 @@ import {
   getUserDiaryEntries,
   getLatestUserMetric,
   getUserStreak,
+  getUserMetricsByDate,
 } from '../services/firestoreService';
 import { useSettings } from '../context/settingsContext';
 
@@ -19,6 +20,7 @@ function Dashboard() {
   const [meals, setMeals] = useState([]);
   const [latestWeight, setLatestWeight] = useState(null);
   const [latestSleep, setLatestSleep] = useState(null);
+  const [exerciseMetrics, setExerciseMetrics] = useState([]);
   const [userStreak, setUserStreak] = useState({
     currentStreak: 0,
     longestStreak: 0,
@@ -68,6 +70,26 @@ function Dashboard() {
           setLatestSleep(sleepMetric);
         } catch (sleepError) {
           console.error('Error fetching sleep metric:', sleepError);
+          // Don't let this error stop the entire dashboard
+        }
+        
+        try {
+          // Get exercise metrics for today
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+          
+          // We'll need to add a function to get exercise metrics for today in firestoreService
+          const exerciseData = await getUserMetricsByDate(
+            currentUser.uid,
+            'exercise',
+            todayStart,
+            todayEnd
+          );
+          setExerciseMetrics(exerciseData || []);
+        } catch (exerciseError) {
+          console.error('Error fetching exercise metrics:', exerciseError);
           // Don't let this error stop the entire dashboard
         }
 
@@ -145,8 +167,23 @@ function Dashboard() {
     // Leave the totals as 0
   }
 
+  // Calculate exercise calories burned
+  let exerciseCaloriesBurned = 0;
+  try {
+    exerciseCaloriesBurned = exerciseMetrics.reduce((total, exercise) => {
+      return total + (Number(exercise.details?.calories) || 0);
+    }, 0);
+  } catch (error) {
+    console.error('Error calculating exercise calories:', error);
+  }
+  
+  // Calculate net calories (consumed - burned)
+  const netCalories = Math.max(0, rawTotalCalories - exerciseCaloriesBurned);
+  
   // Round the values for display
   const totalCalories = Math.round(rawTotalCalories);
+  const totalNetCalories = Math.round(netCalories);
+  const totalExerciseCalories = Math.round(exerciseCaloriesBurned);
   const totalProtein = Math.round(rawTotalProtein * 10) / 10;
   const totalCarbs = Math.round(rawTotalCarbs * 10) / 10;
   const totalFat = Math.round(rawTotalFat * 10) / 10;
@@ -164,7 +201,7 @@ function Dashboard() {
     fatPercentage = 0;
 
   try {
-    caloriePercentage = Math.min(100, (totalCalories / calorieGoal) * 100) || 0;
+    caloriePercentage = Math.min(100, (totalNetCalories / calorieGoal) * 100) || 0;
     proteinPercentage = Math.min(100, (totalProtein / proteinGoal) * 100) || 0;
     carbsPercentage = Math.min(100, (totalCarbs / carbsGoal) * 100) || 0;
     fatPercentage = Math.min(100, (totalFat / fatGoal) * 100) || 0;
@@ -267,7 +304,7 @@ function Dashboard() {
       {isLoading ? (
         <div className="text-center mt-8">Loading your nutrition data...</div>
       ) : (
-        <>
+        <div>
           {/* Top Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6 w-full max-w-4xl mx-auto">
             {/* Weight Card */}
@@ -359,26 +396,21 @@ function Dashboard() {
                     darkMode ? 'text-green-400' : 'text-green-600'
                   }`}
                 >
-                  {userStreak && userStreak.currentStreak !== undefined
-                    ? userStreak.currentStreak
-                    : 0}{' '}
-                  days
+                  {userStreak.currentStreak} days
                 </div>
-                {userStreak && userStreak.longestStreak > 0 && (
-                  <div
-                    className={`text-sm ${
-                      darkMode ? 'text-slate-400' : 'text-gray-600'
-                    } mt-1`}
-                  >
-                    Longest streak: {userStreak.longestStreak} days
-                  </div>
-                )}
                 <div
-                  className={`mt-3 text-sm px-3 py-1 rounded-full ${
-                    darkMode ? 'bg-slate-700' : 'bg-gray-200'
+                  className={`text-sm ${
+                    darkMode ? 'text-slate-400' : 'text-gray-600'
+                  } mt-1`}
+                >
+                  Current streak
+                </div>
+                <div
+                  className={`text-base font-medium mt-3 ${
+                    darkMode ? 'text-yellow-300' : 'text-yellow-600'
                   }`}
                 >
-                  Keep tracking daily!
+                  Longest: {userStreak.longestStreak} days
                 </div>
               </div>
             </div>
@@ -403,9 +435,9 @@ function Dashboard() {
                       darkMode ? 'text-purple-400' : 'text-purple-600'
                     }`}
                   >
-                    {latestSleep && latestSleep.value
-                      ? `${Math.floor(latestSleep.value / 60)}h ${
-                          latestSleep.value % 60
+                    {latestSleep && latestSleep.value && latestSleep.value > 0
+                      ? `${Math.floor(Math.max(0, latestSleep.value) / 60)}h ${
+                          Math.max(0, latestSleep.value) % 60
                         }m`
                       : '0h 0m'}
                   </div>
@@ -476,11 +508,11 @@ function Dashboard() {
                   style={{ width: `${caloriePercentage}%` }}
                 >
                   {caloriePercentage > 15
-                    ? `${Math.round((totalCalories / calorieGoal) * 100)}%`
+                    ? `${Math.round((totalNetCalories / calorieGoal) * 100)}%`
                     : ''}
                 </div>
               </div>
-              <div className="flex justify-between text-sm mb-4 font-medium">
+              <div className="flex justify-between text-sm mb-2 font-medium">
                 <span
                   className={`${
                     darkMode
@@ -488,7 +520,7 @@ function Dashboard() {
                       : 'bg-blue-100 text-blue-600'
                   } px-3 py-1 rounded-full`}
                 >
-                  {totalCalories} kcal
+                  {totalNetCalories} kcal (net)
                 </span>
                 <span
                   className={`${
@@ -498,6 +530,16 @@ function Dashboard() {
                   {calorieGoal} kcal goal
                 </span>
               </div>
+              {totalExerciseCalories > 0 && (
+                <div className="flex justify-between text-xs mb-4">
+                  <span className={darkMode ? "text-gray-300" : "text-gray-600"}>
+                    Consumed: {totalCalories} kcal
+                  </span>
+                  <span className={darkMode ? "text-green-400" : "text-green-600"}>
+                    Exercise: -{totalExerciseCalories} kcal
+                  </span>
+                </div>
+              )}
               <p
                 className={`text-center ${
                   darkMode
@@ -610,156 +652,156 @@ function Dashboard() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Recent Meals Section */}
-          <div
-            className={`w-full max-w-2xl mx-auto mt-6 p-4 border border-black rounded-md ${
-              darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
-            }`}
-          >
+            {/* Recent Meals Section */}
             <div
-              className={`flex justify-between items-center mb-3 border-b ${
-                darkMode ? 'border-slate-600' : 'border-gray-300'
-              } pb-2`}
+              className={`w-full max-w-2xl mx-auto mt-6 p-4 border border-black rounded-md ${
+                darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
+              } md:col-span-2`}
             >
-              <h3
-                className={`text-xl font-semibold ${
-                  darkMode ? 'text-slate-100' : ''
-                }`}
+              <div
+                className={`flex justify-between items-center mb-3 border-b ${
+                  darkMode ? 'border-slate-600' : 'border-gray-300'
+                } pb-2`}
               >
-                Today&apos;s Meals
-              </h3>
-              <Link
-                to="/diary"
-                className={`${
-                  darkMode
-                    ? 'text-blue-400 hover:bg-blue-900'
-                    : 'text-blue-600 hover:bg-blue-100'
-                } px-3 py-1.5 rounded-md transition-colors text-sm font-medium flex items-center`}
-                title="View diary"
-              >
-                <span>View all meals</span>
-                <span className="ml-1">→</span>
-              </Link>
-            </div>
-            {todaysMeals && todaysMeals.length > 0 ? (
-              <div className="space-y-2">
-                {todaysMeals.slice(0, 3).map(
-                  (meal) =>
-                    meal && (
-                      <div
-                        key={meal.id}
-                        className={`border ${
-                          darkMode
-                            ? 'border-slate-600 bg-slate-700'
-                            : 'border-gray-300 bg-white'
-                        } p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow`}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <span
-                            className={`font-semibold text-lg ${
-                              darkMode ? 'text-slate-100' : ''
-                            }`}
-                          >
-                            {meal.name}
-                          </span>
-                          <span
-                            className={`${
-                              darkMode
-                                ? 'bg-blue-900 text-blue-300'
-                                : 'bg-blue-100 text-blue-600'
-                            } px-2 py-1 rounded-full font-medium`}
-                          >
-                            {Math.round(meal.calories || 0)} kcal
-                          </span>
-                        </div>
-                        <div className="flex justify-around items-center mt-3 relative">
-                          {/* Protein */}
-                          <div className="text-center">
-                            <div
-                              className={`${
-                                darkMode
-                                  ? 'bg-red-900 text-red-300'
-                                  : 'bg-red-100 text-red-600'
-                              } rounded-lg px-3 py-1.5 font-medium`}
-                            >
-                              {Math.round((meal.protein || 0) * 10) / 10}g
-                            </div>
-                            <div
-                              className={`text-xs mt-1 ${
-                                darkMode ? 'text-slate-400' : 'text-gray-600'
-                              }`}
-                            >
-                              Protein
-                            </div>
-                          </div>
-
-                          {/* Vertical Divider */}
-                          <div
-                            className={`h-12 w-px ${
-                              darkMode ? 'bg-slate-600' : 'bg-gray-300'
-                            } absolute left-1/3 top-1/2 transform -translate-y-1/2`}
-                          ></div>
-
-                          {/* Carbs */}
-                          <div className="text-center">
-                            <div
-                              className={`${
-                                darkMode
-                                  ? 'bg-green-900 text-green-300'
-                                  : 'bg-green-100 text-green-600'
-                              } rounded-lg px-3 py-1.5 font-medium`}
-                            >
-                              {Math.round((meal.carbs || 0) * 10) / 10}g
-                            </div>
-                            <div
-                              className={`text-xs mt-1 ${
-                                darkMode ? 'text-slate-400' : 'text-gray-600'
-                              }`}
-                            >
-                              Carbs
-                            </div>
-                          </div>
-
-                          {/* Vertical Divider */}
-                          <div
-                            className={`h-12 w-px ${
-                              darkMode ? 'bg-slate-600' : 'bg-gray-300'
-                            } absolute left-2/3 top-1/2 transform -translate-y-1/2`}
-                          ></div>
-
-                          {/* Fat */}
-                          <div className="text-center">
-                            <div
-                              className={`${
-                                darkMode
-                                  ? 'bg-yellow-900 text-yellow-300'
-                                  : 'bg-yellow-100 text-yellow-600'
-                              } rounded-lg px-3 py-1.5 font-medium`}
-                            >
-                              {Math.round((meal.fat || 0) * 10) / 10}g
-                            </div>
-                            <div
-                              className={`text-xs mt-1 ${
-                                darkMode ? 'text-slate-400' : 'text-gray-600'
-                              }`}
-                            >
-                              Fat
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                )}
+                <h3
+                  className={`text-xl font-semibold ${
+                    darkMode ? 'text-slate-100' : ''
+                  }`}
+                >
+                  Today&apos;s Meals
+                </h3>
+                <Link
+                  to="/diary"
+                  className={`${
+                    darkMode
+                      ? 'text-blue-400 hover:bg-blue-900'
+                      : 'text-blue-600 hover:bg-blue-100'
+                  } px-3 py-1.5 rounded-md transition-colors text-sm font-medium flex items-center`}
+                  title="View diary"
+                >
+                  <span>View all meals</span>
+                  <span className="ml-1">→</span>
+                </Link>
               </div>
-            ) : (
-              <p className={`${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                No meals logged today. Start tracking your nutrition!
-              </p>
-            )}
+              {todaysMeals && todaysMeals.length > 0 ? (
+                <div className="space-y-2">
+                  {todaysMeals.slice(0, 3).map(
+                    (meal) =>
+                      meal && (
+                        <div
+                          key={meal.id}
+                          className={`border ${
+                            darkMode
+                              ? 'border-slate-600 bg-slate-700'
+                              : 'border-gray-300 bg-white'
+                          } p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow`}
+                        >
+                          <div className="flex justify-between items-center mb-2">
+                            <span
+                              className={`font-semibold text-lg ${
+                                darkMode ? 'text-slate-100' : ''
+                              }`}
+                            >
+                              {meal.name}
+                            </span>
+                            <span
+                              className={`${
+                                darkMode
+                                  ? 'bg-blue-900 text-blue-300'
+                                  : 'bg-blue-100 text-blue-600'
+                              } px-2 py-1 rounded-full font-medium`}
+                            >
+                              {Math.round(meal.calories || 0)} kcal ({meal.amount || 100}g)
+                            </span>
+                          </div>
+                          <div className="flex justify-around items-center mt-3 relative">
+                            {/* Protein */}
+                            <div className="text-center">
+                              <div
+                                className={`${
+                                  darkMode
+                                    ? 'bg-red-900 text-red-300'
+                                    : 'bg-red-100 text-red-600'
+                                } rounded-lg px-3 py-1.5 font-medium`}
+                              >
+                                {Math.round((meal.protein || 0) * 10) / 10}g
+                              </div>
+                              <div
+                                className={`text-xs mt-1 ${
+                                  darkMode ? 'text-slate-400' : 'text-gray-600'
+                                }`}
+                              >
+                                Protein
+                              </div>
+                            </div>
+
+                            {/* Vertical Divider */}
+                            <div
+                              className={`h-12 w-px ${
+                                darkMode ? 'bg-slate-600' : 'bg-gray-300'
+                              } absolute left-1/3 top-1/2 transform -translate-y-1/2`}
+                            ></div>
+
+                            {/* Carbs */}
+                            <div className="text-center">
+                              <div
+                                className={`${
+                                  darkMode
+                                    ? 'bg-green-900 text-green-300'
+                                    : 'bg-green-100 text-green-600'
+                                } rounded-lg px-3 py-1.5 font-medium`}
+                              >
+                                {Math.round((meal.carbs || 0) * 10) / 10}g
+                              </div>
+                              <div
+                                className={`text-xs mt-1 ${
+                                  darkMode ? 'text-slate-400' : 'text-gray-600'
+                                }`}
+                              >
+                                Carbs
+                              </div>
+                            </div>
+
+                            {/* Vertical Divider */}
+                            <div
+                              className={`h-12 w-px ${
+                                darkMode ? 'bg-slate-600' : 'bg-gray-300'
+                              } absolute left-2/3 top-1/2 transform -translate-y-1/2`}
+                            ></div>
+
+                            {/* Fat */}
+                            <div className="text-center">
+                              <div
+                                className={`${
+                                  darkMode
+                                    ? 'bg-yellow-900 text-yellow-300'
+                                    : 'bg-yellow-100 text-yellow-600'
+                                } rounded-lg px-3 py-1.5 font-medium`}
+                              >
+                                {Math.round((meal.fat || 0) * 10) / 10}g
+                              </div>
+                              <div
+                                className={`text-xs mt-1 ${
+                                  darkMode ? 'text-slate-400' : 'text-gray-600'
+                                }`}
+                              >
+                                Fat
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                  )}
+                </div>
+              ) : (
+                <p className={`${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  No meals logged today. Start tracking your nutrition!
+                </p>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Action Buttons */}
@@ -779,7 +821,7 @@ function Dashboard() {
               : 'bg-white hover:bg-gray-200'
           }`}
         >
-          Set Goals
+          <span>Meal Plans</span>
         </button>
         <button
           className={`border border-black px-4 py-2 rounded-md ${
@@ -788,7 +830,7 @@ function Dashboard() {
               : 'bg-white hover:bg-gray-200'
           }`}
         >
-          Food Search
+          <span>Import Recipe</span>
         </button>
         <button
           className={`border border-black px-4 py-2 rounded-md ${
@@ -797,16 +839,18 @@ function Dashboard() {
               : 'bg-white hover:bg-gray-200'
           }`}
         >
-          Weekly Report
+          <span>Reports</span>
         </button>
       </div>
 
       {/* Quick Add Meal Modal */}
-      <QuickAddMealModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        userId={currentUser?.uid}
-      />
+      {isModalOpen && (
+        <QuickAddMealModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          userId={currentUser.uid}
+        />
+      )}
 
       <Footer />
     </div>

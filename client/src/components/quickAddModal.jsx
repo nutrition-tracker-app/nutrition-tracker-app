@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { addMeal, getUserDiaryEntries } from '../services/firestoreService';
 import PropTypes from 'prop-types';
 import { searchFoods, extractNutrients } from '../services/foodApiService';
+import { useSettings } from '../context/settingsContext';
 
 function QuickAddMealModal({ isOpen, onClose, userId }) {
+  const { darkMode } = useSettings();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -132,6 +134,10 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
     try {
       setIsSearching(true);
       const results = await searchFoods(searchQuery);
+      
+      // Log the full API response to console
+      console.log('Food API Search Response:', results);
+      
       setSearchResults(results.slice(0, 5)); // Limit to first 5 results
     } catch (error) {
       console.error('Error searching foods:', error);
@@ -144,8 +150,14 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
   // Handle selecting a food from search results
   const handleSelectFood = async (food) => {
     try {
+      // Log the selected food details
+      console.log('Selected Food Item:', food);
+      
       // Extract common nutrients using our improved function
       const nutrients = extractNutrients(food);
+      
+      // Log the extracted nutrients
+      console.log('Extracted Nutrients:', nutrients);
 
       // Save the selected food for reference
       setSelectedFood(food);
@@ -153,6 +165,13 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       // Switch to database mode
       setEntryMode('database');
 
+      // Check if allNutrients is available
+      if (nutrients.allNutrients && nutrients.allNutrients.length > 0) {
+        console.log(`Food has ${nutrients.allNutrients.length} detailed nutrients`);
+      } else {
+        console.warn('No detailed nutrients found in food data');
+      }
+      
       // Update the meal data with the food's information
       setMealData({
         name: food.description || food.foodName || 'Unknown Food',
@@ -162,6 +181,12 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         fat: nutrients.fat || 0,
         amount: mealData.amount, // Preserve the current amount
         category: mealData.category, // Preserve the current category
+        // Include all nutrients
+        allNutrients: nutrients.allNutrients || [],
+        sodium: nutrients.sodium || 0,
+        cholesterol: nutrients.cholesterol || 0,
+        fiber: nutrients.fiber || 0, 
+        sugar: nutrients.sugar || 0
       });
 
       // Clear search
@@ -219,9 +244,20 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         date: new Date(), // Store the current date
       };
 
+      // Enhanced logging
+      console.log('=== MEAL SAVE DETAILS ===');
       console.log('Adding meal with data:', nutrients);
+      console.log('Meal nutrient values:', {
+        calories: nutrients.calories,
+        protein: nutrients.protein,
+        carbs: nutrients.carbs,
+        fat: nutrients.fat
+      });
       console.log('Selected meal category:', nutrients.category);
-      await addMeal(userId, nutrients);
+      
+      // Save to Firestore
+      const mealResult = await addMeal(userId, nutrients);
+      console.log('Meal save result:', mealResult);
 
       setSuccess(true);
 
@@ -251,12 +287,12 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center backdrop-blur-sm bg-black/30 mx-auto z-50">
-      <div className="bg-[#efffce] border border-black shadow-lg rounded-lg flex flex-col p-4 max-h-[90vh] w-[90vw] md:w-[500px] overflow-y-auto">
+      <div className={`${darkMode ? 'bg-gray-800' : 'bg-[#efffce]'} border border-black shadow-lg rounded-lg flex flex-col p-4 max-h-[90vh] w-[90vw] md:w-[500px] overflow-y-auto`}>
         {/* Modal Header */}
         <div className="flex justify-between items-center mb-4 border-b border-gray-300 pb-2">
-          <h2 className="text-lg font-bold text-green-700">Quick Add Meal</h2>
+          <h2 className={`text-lg font-bold ${darkMode ? 'text-green-400' : 'text-green-700'}`}>Quick Add Meal</h2>
           <button
-            className="text-gray-700 hover:text-white hover:bg-red-500 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+            className={`${darkMode ? 'text-slate-100' : 'text-gray-700'} hover:text-white hover:bg-red-500 w-7 h-7 rounded-full flex items-center justify-center transition-colors`}
             onClick={onClose}
             title="Close"
           >
@@ -284,20 +320,20 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             className={`px-3 py-1 rounded-md border border-black ${
               entryMode === 'custom'
                 ? 'bg-green-400 text-white font-semibold'
-                : 'bg-white'
+                : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
             } transition-colors`}
             onClick={handleSwitchToCustom}
           >
             Custom Entry
           </button>
-          <div className="text-center text-xs flex items-center text-gray-500">
+          <div className={`text-center text-xs flex items-center ${darkMode ? 'text-slate-300' : 'text-gray-500'}`}>
             or
           </div>
           <button
             className={`px-3 py-1 rounded-md border border-black ${
               entryMode === 'database'
                 ? 'bg-green-400 text-white font-semibold'
-                : 'bg-white'
+                : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
             } ${
               !selectedFood ? 'opacity-50 cursor-not-allowed' : ''
             } transition-colors`}
@@ -311,11 +347,11 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         {/* Custom Mode: Recent Meals Dropdown (Only shown in custom mode) */}
         {entryMode === 'custom' && recentMeals.length > 0 && (
           <div className="mb-4">
-            <label className="block font-medium text-purple-700 mb-1">
+            <label className={`block font-medium ${darkMode ? 'text-purple-400' : 'text-purple-700'} mb-1`}>
               Recent Meals:
             </label>
             <select
-              className="bg-white w-full px-3 py-2 border border-purple-300 rounded-md text-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors"
+              className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-700'} w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors`}
               onChange={(e) => {
                 if (e.target.value !== '') {
                   const selectedMeal = recentMeals[Number(e.target.value)];
@@ -324,9 +360,9 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
               }}
               value=""
             >
-              <option value="">-- Select a recent meal --</option>
+              <option value="" className={darkMode ? 'bg-gray-700' : 'bg-white'}>-- Select a recent meal --</option>
               {recentMeals.map((meal, index) => (
-                <option key={meal.id} value={index}>
+                <option key={meal.id} value={index} className={darkMode ? 'bg-gray-700' : 'bg-white'}>
                   {meal.name} ({meal.calories} cal)
                 </option>
               ))}
@@ -336,14 +372,14 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
 
         {/* Database Mode: Search Food Database */}
         <div className="mb-4">
-          <label className="block font-medium text-blue-700 mb-1">
+          <label className={`block font-medium ${darkMode ? 'text-blue-400' : 'text-blue-700'} mb-1`}>
             Search Food Database:
           </label>
           <div className="flex space-x-2">
             <input
               type="text"
               placeholder="🔍 Search for a food..."
-              className="bg-white flex-grow px-3 py-2 border border-blue-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+              className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'} flex-grow px-3 py-2 border border-blue-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors`}
               value={searchQuery}
               onChange={handleSearchChange}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -351,7 +387,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             <button
               onClick={handleSearch}
               disabled={isSearching || !searchQuery.trim()}
-              className="border border-blue-400 px-3 py-2 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium transition-colors disabled:opacity-50"
+              className={`border border-blue-400 px-3 py-2 rounded-md ${darkMode ? 'bg-blue-900 hover:bg-blue-800 text-blue-300' : 'bg-blue-100 hover:bg-blue-200 text-blue-700'} font-medium transition-colors disabled:opacity-50`}
             >
               {isSearching ? '...' : 'Search'}
             </button>
@@ -359,11 +395,11 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
 
           {/* Search Results */}
           {searchResults.length > 0 && (
-            <div className="mt-2 border border-blue-200 rounded-md max-h-40 overflow-y-auto bg-white shadow-sm">
+            <div className={`mt-2 border border-blue-200 rounded-md max-h-40 overflow-y-auto ${darkMode ? 'bg-gray-700' : 'bg-white'} shadow-sm`}>
               {searchResults.map((food, index) => (
                 <div
                   key={index}
-                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-blue-100 last:border-b-0 transition-colors"
+                  className={`px-3 py-2 ${darkMode ? 'hover:bg-gray-600 text-slate-100' : 'hover:bg-blue-50 text-gray-800'} cursor-pointer border-b border-blue-100 last:border-b-0 transition-colors`}
                   onClick={() => handleSelectFood(food)}
                 >
                   {food.description || food.foodName || 'Unknown Food'}
@@ -375,32 +411,32 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
 
         {/* Selected Food Info (Database Mode) */}
         {entryMode === 'database' && selectedFood && (
-          <div className="mb-4 bg-blue-50 p-4 rounded-lg border border-blue-200 shadow-sm">
-            <h3 className="font-semibold text-blue-800 border-b border-blue-200 pb-2 mb-3">
+          <div className={`mb-4 ${darkMode ? 'bg-blue-900' : 'bg-blue-50'} p-4 rounded-lg border border-blue-200 shadow-sm`}>
+            <h3 className={`font-semibold ${darkMode ? 'text-blue-300 border-blue-700' : 'text-blue-800 border-blue-200'} border-b pb-2 mb-3`}>
               {mealData.name}
             </h3>
             <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="bg-blue-100 rounded-lg p-2">
-                <div className="text-blue-600 font-bold">
+              <div className={`${darkMode ? 'bg-blue-800' : 'bg-blue-100'} rounded-lg p-2`}>
+                <div className={`${darkMode ? 'text-blue-300' : 'text-blue-600'} font-bold`}>
                   {mealData.calories}
                 </div>
-                <div className="text-xs text-blue-700">Calories</div>
+                <div className={`text-xs ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>Calories</div>
               </div>
-              <div className="bg-red-100 rounded-lg p-2">
-                <div className="text-red-600 font-bold">
+              <div className={`${darkMode ? 'bg-red-900' : 'bg-red-100'} rounded-lg p-2`}>
+                <div className={`${darkMode ? 'text-red-300' : 'text-red-600'} font-bold`}>
                   {mealData.protein}g
                 </div>
-                <div className="text-xs text-red-700">Protein</div>
+                <div className={`text-xs ${darkMode ? 'text-red-400' : 'text-red-700'}`}>Protein</div>
               </div>
-              <div className="bg-green-100 rounded-lg p-2">
-                <div className="text-green-600 font-bold">
+              <div className={`${darkMode ? 'bg-green-900' : 'bg-green-100'} rounded-lg p-2`}>
+                <div className={`${darkMode ? 'text-green-300' : 'text-green-600'} font-bold`}>
                   {mealData.carbs}g
                 </div>
-                <div className="text-xs text-green-700">Carbs</div>
+                <div className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-700'}`}>Carbs</div>
               </div>
-              <div className="bg-yellow-100 rounded-lg p-2">
-                <div className="text-yellow-600 font-bold">{mealData.fat}g</div>
-                <div className="text-xs text-yellow-700">Fat</div>
+              <div className={`${darkMode ? 'bg-yellow-900' : 'bg-yellow-100'} rounded-lg p-2`}>
+                <div className={`${darkMode ? 'text-yellow-300' : 'text-yellow-600'} font-bold`}>{mealData.fat}g</div>
+                <div className={`text-xs ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>Fat</div>
               </div>
             </div>
           </div>
@@ -408,19 +444,19 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
 
         {/* Input Fields */}
         <div className="space-y-2">
-          <label className="block font-medium text-green-700">Meal Name:</label>
+          <label className={`block font-medium ${darkMode ? 'text-green-400' : 'text-green-700'}`}>Meal Name:</label>
           <input
             type="text"
             name="name"
             value={mealData.name}
             onChange={handleChange}
-            className="bg-white w-full px-3 py-2 border border-gray-400 rounded-md focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-colors"
+            className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'} w-full px-3 py-2 border border-gray-400 rounded-md focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-colors`}
             placeholder="Enter meal name"
           />
 
           <div className="flex justify-between items-center mt-3">
             <div className="w-1/2 pr-1">
-              <label className="block font-medium text-purple-600">
+              <label className={`block font-medium ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                 Amount:
               </label>
               <input
@@ -429,35 +465,38 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
                 value={mealData.amount}
                 onChange={handleChange}
                 min="1"
-                className="bg-white w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors"
+                className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'} w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors`}
                 placeholder="100"
               />
             </div>
             <div className="w-1/2 pl-1">
-              <label className="block font-medium text-gray-500">Unit:</label>
+              <label className={`block font-medium ${darkMode ? 'text-slate-300' : 'text-gray-500'}`}>Unit:</label>
               <input
                 type="text"
                 value="g"
                 disabled
-                className="bg-gray-100 w-full px-3 py-2 border border-gray-300 rounded-md opacity-70 outline-none"
+                className={`${darkMode ? 'bg-gray-600 text-slate-300' : 'bg-gray-100 text-gray-500'} w-full px-3 py-2 border border-gray-300 rounded-md opacity-70 outline-none`}
               />
             </div>
           </div>
 
-          <label className="block font-medium text-blue-600 mt-2">
+          <label className={`block font-medium ${darkMode ? 'text-blue-400' : 'text-blue-600'} mt-2`}>
             Calories:
           </label>
           <input
             type="number"
             name="calories"
-            //value={mealData.calories}
             value={mealData.calories === '' ? '' : mealData.calories}
             onChange={handleChange}
             readOnly={entryMode === 'database'}
             min="0"
-            className={`bg-white w-full px-3 py-2 border ${
+            className={`${
+              darkMode 
+                ? (entryMode === 'database' ? 'bg-blue-800 text-slate-100' : 'bg-gray-700 text-slate-100')
+                : (entryMode === 'database' ? 'bg-blue-50 text-gray-800' : 'bg-white text-gray-800')
+            } w-full px-3 py-2 border ${
               entryMode === 'database'
-                ? 'border-blue-300 bg-blue-50'
+                ? 'border-blue-300'
                 : 'border-gray-400'
             } rounded-md ${
               entryMode === 'database'
@@ -467,19 +506,22 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             placeholder="0"
           />
 
-          <label className="block font-medium text-red-600">Protein (g):</label>
+          <label className={`block font-medium ${darkMode ? 'text-red-400' : 'text-red-600'}`}>Protein (g):</label>
           <input
             type="number"
             name="protein"
-            //value={mealData.protein}
             value={mealData.protein === '' ? '' : mealData.protein}
             onChange={handleChange}
             readOnly={entryMode === 'database'}
             min="0"
             step="0.1"
-            className={`bg-white w-full px-3 py-2 border ${
+            className={`${
+              darkMode 
+                ? (entryMode === 'database' ? 'bg-red-800 text-slate-100' : 'bg-gray-700 text-slate-100')
+                : (entryMode === 'database' ? 'bg-red-50 text-gray-800' : 'bg-white text-gray-800')
+            } w-full px-3 py-2 border ${
               entryMode === 'database'
-                ? 'border-red-300 bg-red-50'
+                ? 'border-red-300'
                 : 'border-gray-400'
             } rounded-md ${
               entryMode === 'database'
@@ -489,7 +531,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             placeholder="0"
           />
 
-          <label className="block font-medium text-green-600">Carbs (g):</label>
+          <label className={`block font-medium ${darkMode ? 'text-green-400' : 'text-green-600'}`}>Carbs (g):</label>
           <input
             type="number"
             name="carbs"
@@ -498,9 +540,13 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             readOnly={entryMode === 'database'}
             min="0"
             step="0.1"
-            className={`bg-white w-full px-3 py-2 border ${
+            className={`${
+              darkMode 
+                ? (entryMode === 'database' ? 'bg-green-800 text-slate-100' : 'bg-gray-700 text-slate-100')
+                : (entryMode === 'database' ? 'bg-green-50 text-gray-800' : 'bg-white text-gray-800')
+            } w-full px-3 py-2 border ${
               entryMode === 'database'
-                ? 'border-green-300 bg-green-50'
+                ? 'border-green-300'
                 : 'border-gray-400'
             } rounded-md ${
               entryMode === 'database'
@@ -510,7 +556,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             placeholder="0"
           />
 
-          <label className="block font-medium text-yellow-600">Fat (g):</label>
+          <label className={`block font-medium ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>Fat (g):</label>
           <input
             type="number"
             name="fat"
@@ -519,9 +565,13 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             readOnly={entryMode === 'database'}
             min="0"
             step="0.1"
-            className={`bg-white w-full px-3 py-2 border ${
+            className={`${
+              darkMode 
+                ? (entryMode === 'database' ? 'bg-yellow-800 text-slate-100' : 'bg-gray-700 text-slate-100')
+                : (entryMode === 'database' ? 'bg-yellow-50 text-gray-800' : 'bg-white text-gray-800')
+            } w-full px-3 py-2 border ${
               entryMode === 'database'
-                ? 'border-yellow-300 bg-yellow-50'
+                ? 'border-yellow-300'
                 : 'border-gray-400'
             } rounded-md ${
               entryMode === 'database'
@@ -531,20 +581,20 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             placeholder="0"
           />
 
-          <label className="block font-medium text-purple-600 mt-3">
+          <label className={`block font-medium ${darkMode ? 'text-purple-400' : 'text-purple-600'} mt-3`}>
             Meal Category:
           </label>
           <select
             name="category"
             value={mealData.category}
             onChange={handleChange}
-            className="bg-white w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors"
+            className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'} w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors`}
           >
-            <option value="uncategorized">Uncategorized</option>
-            <option value="breakfast">Breakfast</option>
-            <option value="lunch">Lunch</option>
-            <option value="dinner">Dinner</option>
-            <option value="snack">Snack</option>
+            <option value="uncategorized" className={darkMode ? 'bg-gray-700' : ''}>Uncategorized</option>
+            <option value="breakfast" className={darkMode ? 'bg-gray-700' : ''}>Breakfast</option>
+            <option value="lunch" className={darkMode ? 'bg-gray-700' : ''}>Lunch</option>
+            <option value="dinner" className={darkMode ? 'bg-gray-700' : ''}>Dinner</option>
+            <option value="snack" className={darkMode ? 'bg-gray-700' : ''}>Snack</option>
           </select>
         </div>
 
@@ -552,7 +602,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         <div className="flex justify-between mt-4">
           <button
             onClick={onClose}
-            className="border border-black px-4 py-1.5 rounded-md bg-gray-200 hover:bg-gray-300 font-medium transition-colors"
+            className={`border border-black px-4 py-1.5 rounded-md ${darkMode ? 'bg-gray-600 text-slate-100 hover:bg-gray-500' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} font-medium transition-colors`}
             title="Cancel and close"
           >
             Cancel
@@ -560,7 +610,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
           <button
             onClick={handleSave}
             disabled={isLoading || !mealData.name.trim()}
-            className="border border-black px-4 py-1.5 rounded-md bg-green-400 hover:bg-green-500 text-white font-medium shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:bg-gray-300 disabled:shadow-none"
+            className={`border border-black px-4 py-1.5 rounded-md bg-green-400 hover:bg-green-500 text-white font-medium shadow-sm hover:shadow transition-all disabled:opacity-50 ${darkMode ? 'disabled:bg-gray-700' : 'disabled:bg-gray-300'} disabled:shadow-none`}
             title="Save this meal"
           >
             {isLoading ? 'Saving...' : 'Save Meal'}
