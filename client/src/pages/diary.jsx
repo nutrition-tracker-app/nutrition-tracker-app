@@ -13,6 +13,7 @@ import {
   trackWeight,
   trackSleep,
   trackExercise,
+  deleteUserMetric
 } from '../services/firestoreService';
 
 function Diary() {
@@ -20,9 +21,12 @@ function Diary() {
   const { darkMode, editMode } = useSettings();
   const navigate = useNavigate();
 
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  // Initialize with today's date at noon in local time to avoid timezone issues
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    now.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+    return now.toISOString().split('T')[0];
+  });
   const [meals, setMeals] = useState([]);
   const [metrics, setMetrics] = useState({
     weight: [],
@@ -78,10 +82,22 @@ function Diary() {
   useEffect(() => {
     const fetchDiaryData = async () => {
       if (!currentUser) return;
+      
+      // Log the selected date when the effect runs
+      console.log(`Fetching diary data for date: ${selectedDate}`);
 
       try {
         setIsLoading(true);
         setError('');
+        
+        // Debug info about the selected date
+        const dateParts = selectedDate.split('-').map(Number);
+        console.log('Selected date components:', {
+          year: dateParts[0],
+          month: dateParts[1],
+          day: dateParts[2],
+          dateObj: new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).toString()
+        });
 
         // Fetch meals for selected date
         const userMeals = await getUserMealsByDate(
@@ -94,11 +110,24 @@ function Diary() {
         const fetchAndProcessMetric = async (type) => {
           const userMetrics = await getUserMetrics(currentUser.uid, type);
 
-          // Filter metrics for selected date
-          const selectedDateStart = new Date(selectedDate);
-          selectedDateStart.setHours(0, 0, 0, 0);
-          const selectedDateEnd = new Date(selectedDate);
-          selectedDateEnd.setHours(23, 59, 59, 999);
+          // Filter metrics for selected date using the same approach as navigateDay
+          const parts = selectedDate.split('-').map(Number);
+          const year = parts[0];
+          const month = parts[1] - 1; // JS months are 0-indexed
+          const day = parts[2];
+          
+          // Create date objects with explicit components to avoid timezone issues
+          const selectedDateStart = new Date(year, month, day, 0, 0, 0, 0);
+          const selectedDateEnd = new Date(year, month, day, 23, 59, 59, 999);
+          
+          console.log('Date range for metrics:', {
+            selectedDateString: selectedDate,
+            dateComponents: { year, month: month + 1, day }, // Convert month back to 1-indexed for display
+            start: selectedDateStart.toString(),
+            startISO: selectedDateStart.toISOString(),
+            end: selectedDateEnd.toString(),
+            endISO: selectedDateEnd.toISOString()
+          });
 
           return userMetrics.filter((metric) => {
             if (!metric || !metric.date) return false;
@@ -106,17 +135,56 @@ function Diary() {
             let metricDate;
             try {
               // Handle different date formats
+              let tempDate;
               if (typeof metric.date.toDate === 'function') {
-                metricDate = metric.date.toDate();
+                tempDate = metric.date.toDate();
               } else if (metric.date instanceof Date) {
-                metricDate = metric.date;
+                tempDate = metric.date;
               } else {
-                metricDate = new Date(metric.date);
+                tempDate = new Date(metric.date);
               }
-
-              return (
-                metricDate >= selectedDateStart && metricDate <= selectedDateEnd
+              
+              // Normalize time to avoid timezone issues by creating a new Date with components
+              metricDate = new Date(
+                tempDate.getFullYear(),
+                tempDate.getMonth(),
+                tempDate.getDate(),
+                tempDate.getHours(),
+                tempDate.getMinutes(),
+                tempDate.getSeconds()
               );
+              
+              // Extract YMD components for display
+              const metricYear = metricDate.getFullYear();
+              const metricMonth = metricDate.getMonth();
+              const metricDay = metricDate.getDate();
+              
+              // Check if the date falls within the selected day (by checking year, month and day)
+              const dateMatch = 
+                metricYear === selectedDateStart.getFullYear() &&
+                metricMonth === selectedDateStart.getMonth() &&
+                metricDay === selectedDateStart.getDate();
+              
+              // Log the metric date for debugging
+              console.log('Metric date check:', {
+                originalDate: tempDate.toString(),
+                metricDate: metricDate.toString(),
+                metricISO: metricDate.toISOString(),
+                components: {
+                  year: metricYear,
+                  month: metricMonth + 1, // Convert to 1-indexed for display
+                  day: metricDay
+                },
+                dateMatch,
+                selectedDateComponents: {
+                  year: selectedDateStart.getFullYear(),
+                  month: selectedDateStart.getMonth() + 1, // Convert to 1-indexed for display
+                  day: selectedDateStart.getDate()
+                }
+              });
+              
+              // Return true if the date components match our selected date
+              return dateMatch;
             } catch (error) {
               console.error('Error processing date:', error);
               return false;
@@ -249,14 +317,78 @@ function Diary() {
 
   // Handle date change
   const handleDateChange = (e) => {
+    console.log(`Date input changed to: ${e.target.value}`);
     setSelectedDate(e.target.value);
   };
 
   // Navigate to previous/next day
   const navigateDay = (direction) => {
-    const currentDate = new Date(selectedDate);
-    currentDate.setDate(currentDate.getDate() + direction);
-    setSelectedDate(currentDate.toISOString().split('T')[0]);
+    // Log the current state before navigation
+    console.log('Before navigation:', {
+      selectedDate,
+      direction
+    });
+    
+    try {
+      // Create a new date object using the date constructor with explicit values
+      // to avoid timezone issues
+      const parts = selectedDate.split('-').map(Number);
+      const year = parts[0];
+      const month = parts[1] - 1; // JS months are 0-indexed
+      const day = parts[2];
+      
+      // Create date at noon to avoid any DST issues
+      const currentDate = new Date(year, month, day, 12, 0, 0, 0);
+      
+      // Log the created date
+      console.log('Current date object:', currentDate.toString());
+      
+      // Calculate the new date
+      const newDate = new Date(year, month, day + direction, 12, 0, 0, 0);
+      
+      // Format the new date as YYYY-MM-DD
+      const newDateString = newDate.toISOString().split('T')[0];
+      
+      // Log the new date
+      console.log('New date:', {
+        newDateObj: newDate.toString(),
+        newDateString
+      });
+      
+      // Update state with the new date
+      setSelectedDate(newDateString);
+    } catch (error) {
+      console.error('Error navigating to new date:', error);
+      
+      // Fallback method if the above fails
+      const currentDate = new Date(selectedDate + 'T12:00:00');
+      currentDate.setDate(currentDate.getDate() + direction);
+      const fallbackDate = currentDate.toISOString().split('T')[0];
+      
+      console.log('Using fallback date:', fallbackDate);
+      setSelectedDate(fallbackDate);
+    }
+  };
+  
+  // Handle delete metric
+  const handleDeleteMetric = async (metricId, metricType) => {
+    if (!window.confirm('Are you sure you want to delete this record?')) {
+      return;
+    }
+    
+    try {
+      await deleteUserMetric(metricId);
+      
+      // Update the UI by removing the deleted metric
+      setMetrics(prev => ({
+        ...prev,
+        [metricType]: prev[metricType].filter(metric => metric.id !== metricId)
+      }));
+      
+    } catch (error) {
+      console.error(`Error deleting ${metricType}:`, error);
+      setError(`Failed to delete ${metricType}. Please try again.`);
+    }
   };
 
   // Delete meal
@@ -721,7 +853,10 @@ function Diary() {
       {/* Date Navigation */}
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <button
-          onClick={() => navigateDay(-1)}
+          onClick={() => {
+            console.log('Previous day button clicked');
+            navigateDay(-1);
+          }}
           className={`px-3 py-1 rounded-md ${
             darkMode
               ? 'bg-slate-700 hover:bg-slate-600'
@@ -741,7 +876,10 @@ function Diary() {
           }`}
         />
         <button
-          onClick={() => navigateDay(1)}
+          onClick={() => {
+            console.log('Next day button clicked');
+            navigateDay(1);
+          }}
           className={`px-3 py-1 rounded-md ${
             darkMode
               ? 'bg-slate-700 hover:bg-slate-600'
@@ -968,23 +1106,34 @@ function Diary() {
                         <span className="font-medium">
                           {metric.value} {metric.details?.unit || 'kg'}
                         </span>
-                        <span
-                          className={`text-xs ${
-                            darkMode ? 'text-slate-400' : 'text-gray-500'
-                          }`}
-                        >
-                          {metric.date
-                            ? typeof metric.date.toDate === 'function'
-                              ? metric.date.toDate().toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
-                              : new Date(metric.date).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
-                            : ''}
-                        </span>
+                        <div className="flex items-center space-x-3">
+                          <span
+                            className={`text-xs ${
+                              darkMode ? 'text-slate-400' : 'text-gray-500'
+                            }`}
+                          >
+                            {metric.date
+                              ? typeof metric.date.toDate === 'function'
+                                ? metric.date.toDate().toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : new Date(metric.date).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                              : ''}
+                          </span>
+                          {editMode && (
+                            <button
+                              onClick={() => handleDeleteMetric(metric.id, 'weight')}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="Delete weight record"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1043,25 +1192,36 @@ function Diary() {
                             {formatTime(metric.details?.wakeup)}
                           </div>
                         </div>
-                        <div className="flex items-center">
-                          <span
-                            className={`text-xs ${
-                              darkMode ? 'text-slate-400' : 'text-gray-500'
-                            } mr-1`}
-                          >
-                            Quality:
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs ${
-                              metric.details?.quality >= 7
-                                ? 'bg-green-100 text-green-800'
-                                : metric.details?.quality >= 4
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {metric.details?.quality || 0}/10
-                          </span>
+                        <div className="flex items-center space-x-2">
+                          <div className="flex items-center">
+                            <span
+                              className={`text-xs ${
+                                darkMode ? 'text-slate-400' : 'text-gray-500'
+                              } mr-1`}
+                            >
+                              Quality:
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs ${
+                                metric.details?.quality >= 7
+                                  ? 'bg-green-100 text-green-800'
+                                  : metric.details?.quality >= 4
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {metric.details?.quality || 0}/10
+                            </span>
+                          </div>
+                          {editMode && (
+                            <button
+                              onClick={() => handleDeleteMetric(metric.id, 'sleep')}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="Delete sleep record"
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1121,11 +1281,22 @@ function Diary() {
                             {metric.details?.intensity || 'moderate'} intensity
                           </div>
                         </div>
-                        {metric.details?.calories > 0 && (
-                          <div className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs">
-                            {metric.details.calories} kcal
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-3">
+                          {metric.details?.calories > 0 && (
+                            <div className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full text-xs">
+                              {metric.details.calories} kcal
+                            </div>
+                          )}
+                          {editMode && (
+                            <button
+                              onClick={() => handleDeleteMetric(metric.id, 'exercise')}
+                              className="text-red-500 hover:text-red-700 p-1 ml-2"
+                              title="Delete exercise record"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1500,7 +1671,7 @@ function Diary() {
                 }
                 className={`w-full px-3 py-2 border rounded-md ${
                   darkMode
-                    ? 'bg-slate-700 border-slate-600 text-white'
+                    ? 'bg-slate-700 border-slate-600 text-white [color-scheme:dark]'
                     : 'bg-white border-gray-300'
                 }`}
               />
@@ -1515,7 +1686,7 @@ function Diary() {
                 }
                 className={`w-full px-3 py-2 border rounded-md ${
                   darkMode
-                    ? 'bg-slate-700 border-slate-600 text-white'
+                    ? 'bg-slate-700 border-slate-600 text-white [color-scheme:dark]'
                     : 'bg-white border-gray-300'
                 }`}
               />

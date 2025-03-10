@@ -11,7 +11,16 @@ import { getUserProfile, updateUserProfile } from '../services/firestoreService'
 function Settings() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const { darkMode, editMode, toggleDarkMode, toggleEditMode } = useSettings();
+  const { 
+    darkMode, 
+    editMode, 
+    userProfile, 
+    toggleDarkMode, 
+    toggleEditMode,
+    updateUserProfile: updateContextProfile,
+    calculateTDEE,
+    calculateTargetCalories
+  } = useSettings();
   
   // User profile settings
   const [profile, setProfile] = useState({
@@ -19,10 +28,18 @@ function Settings() {
     photoURL: '',
     height: 175, // default in cm
     weight: 70, // default in kg
+    age: 30, // default age
     sex: 'prefer-not-to-say', // default
     heightUnit: 'cm',
     weightUnit: 'kg',
+    activityLevel: 'moderate', // default activity level
+    weightGoal: 'maintain', // default weight goal
+    useCustomCalories: false, // whether to use custom calorie target
+    targetCalories: 2000, // default calorie target
   });
+  
+  // Calculate TDEE based on current profile values
+  const [calculatedTDEE, setCalculatedTDEE] = useState(0);
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,33 +52,32 @@ function Settings() {
     }
   }, [currentUser, navigate]);
 
-  // Fetch user profile on component mount
+  // Fetch user profile on component mount (only once)
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!currentUser) return;
       
       try {
         setIsLoading(true);
-        const userProfile = await getUserProfile(currentUser.uid);
+        const serverUserProfile = await getUserProfile(currentUser.uid);
         
-        if (userProfile) {
-          setProfile({
-            displayName: userProfile.displayName || currentUser.displayName || '',
-            photoURL: userProfile.photoURL || currentUser.photoURL || '',
-            height: userProfile.settings?.height || 175,
-            weight: userProfile.settings?.weight || 70,
-            sex: userProfile.settings?.sex || 'prefer-not-to-say',
-            heightUnit: userProfile.settings?.heightUnit || 'cm',
-            weightUnit: userProfile.settings?.weightUnit || 'kg',
-          });
-        } else {
-          // Use current user data if profile doesn't exist
-          setProfile({
-            ...profile,
-            displayName: currentUser.displayName || '',
-            photoURL: currentUser.photoURL || '',
-          });
-        }
+        // Use the values from the settings context
+        const updatedProfile = {
+          displayName: serverUserProfile?.displayName || currentUser.displayName || userProfile?.displayName || '',
+          photoURL: serverUserProfile?.photoURL || currentUser.photoURL || userProfile?.photoURL || '',
+          height: serverUserProfile?.settings?.height || userProfile?.height || 175,
+          weight: serverUserProfile?.settings?.weight || userProfile?.weight || 70,
+          age: userProfile?.age || 30,
+          sex: serverUserProfile?.settings?.sex || userProfile?.sex || 'male',
+          heightUnit: serverUserProfile?.settings?.heightUnit || userProfile?.heightUnit || 'cm',
+          weightUnit: serverUserProfile?.settings?.weightUnit || userProfile?.weightUnit || 'kg',
+          activityLevel: userProfile?.activityLevel || 'moderate',
+          weightGoal: userProfile?.weightGoal || 'maintain',
+          useCustomCalories: userProfile?.useCustomCalories || false,
+          targetCalories: userProfile?.targetCalories || 2000,
+        };
+        
+        setProfile(updatedProfile);
       } catch (error) {
         console.error('Error fetching user profile:', error);
         setError('Failed to load your profile data. Please try again later.');
@@ -71,6 +87,8 @@ function Settings() {
     };
 
     fetchUserProfile();
+    // Only run this effect once when the component mounts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const handleChange = (e) => {
@@ -122,6 +140,76 @@ function Settings() {
     }
   };
 
+  // Calculate TDEE when specific profile values change
+  useEffect(() => {
+    // Skip calculation while loading
+    if (isLoading) return;
+    
+    try {
+      // Convert height if necessary
+      let heightInCm = profile.height;
+      if (profile.heightUnit === 'in') {
+        heightInCm = profile.height * 2.54;
+      }
+      
+      // Convert weight if necessary
+      let weightInKg = profile.weight;
+      if (profile.weightUnit === 'lb') {
+        weightInKg = profile.weight / 2.20462;
+      }
+      
+      // Calculate BMR manually to avoid context dependency
+      const calculateBMR = () => {
+        if (profile.sex === 'male') {
+          return (10 * weightInKg) + (6.25 * heightInCm) - (5 * profile.age) + 5;
+        } else {
+          return (10 * weightInKg) + (6.25 * heightInCm) - (5 * profile.age) - 161;
+        }
+      };
+      
+      // Apply activity multiplier
+      const activityMultipliers = {
+        sedentary: 1.2,
+        light: 1.375,
+        moderate: 1.55,
+        active: 1.725,
+        veryActive: 1.9
+      };
+      
+      const bmr = calculateBMR();
+      const multiplier = activityMultipliers[profile.activityLevel] || activityMultipliers.moderate;
+      const tdee = Math.round(bmr * multiplier);
+      
+      // Store calculated TDEE
+      setCalculatedTDEE(tdee);
+      
+      // If not using custom calories, update the target calories
+      if (!profile.useCustomCalories) {
+        let targetCals;
+        
+        switch (profile.weightGoal) {
+          case 'lose':
+            targetCals = Math.round(tdee * 0.8); // 20% deficit
+            break;
+          case 'gain':
+            targetCals = Math.round(tdee * 1.1); // 10% surplus
+            break;
+          default: // maintain
+            targetCals = tdee;
+        }
+        
+        setProfile(prev => ({
+          ...prev,
+          targetCalories: targetCals
+        }));
+      }
+    } catch (error) {
+      console.error('Error calculating TDEE:', error);
+    }
+  }, [profile.sex, profile.height, profile.weight, profile.age, 
+      profile.activityLevel, profile.weightGoal, profile.heightUnit, 
+      profile.weightUnit, profile.useCustomCalories, isLoading]);
+
   const handleSave = async () => {
     if (!currentUser) {
       setError('You must be logged in to save settings.');
@@ -139,11 +227,28 @@ function Settings() {
         settings: {
           height: profile.height,
           weight: profile.weight,
+          age: profile.age,
           sex: profile.sex,
           heightUnit: profile.heightUnit,
           weightUnit: profile.weightUnit,
+          activityLevel: profile.activityLevel,
+          weightGoal: profile.weightGoal,
+          useCustomCalories: profile.useCustomCalories,
+          targetCalories: profile.targetCalories,
           darkMode: darkMode,
         }
+      });
+      
+      // Update the context profile
+      updateContextProfile({
+        sex: profile.sex,
+        height: profile.height,
+        weight: profile.weight,
+        age: profile.age,
+        activityLevel: profile.activityLevel,
+        weightGoal: profile.weightGoal,
+        useCustomCalories: profile.useCustomCalories,
+        targetCalories: profile.targetCalories
       });
       
       setSuccess('Settings saved successfully!');
@@ -286,6 +391,111 @@ function Settings() {
                     <option value="kg">kg</option>
                     <option value="lb">lb</option>
                   </select>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Age</label>
+                <input
+                  type="number"
+                  name="age"
+                  value={profile.age}
+                  onChange={handleChange}
+                  min="1"
+                  max="120"
+                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+            </div>
+            
+            {/* Nutrition & Calorie Settings */}
+            <div className={`mb-8 p-6 rounded-lg shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} border border-black`}>
+              <h2 className="text-xl font-bold mb-4 border-b pb-2">Nutrition & Calorie Settings</h2>
+              
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Activity Level</label>
+                <select
+                  name="activityLevel"
+                  value={profile.activityLevel}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                >
+                  <option value="sedentary">Sedentary (little or no exercise)</option>
+                  <option value="light">Light (exercise 1-3 days/week)</option>
+                  <option value="moderate">Moderate (exercise 3-5 days/week)</option>
+                  <option value="active">Active (exercise 6-7 days/week)</option>
+                  <option value="veryActive">Very Active (physical job or 2x training)</option>
+                </select>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block font-medium mb-1">Weight Goal</label>
+                <select
+                  name="weightGoal"
+                  value={profile.weightGoal}
+                  onChange={handleChange}
+                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                >
+                  <option value="lose">Lose Weight</option>
+                  <option value="maintain">Maintain Weight</option>
+                  <option value="gain">Gain Weight</option>
+                </select>
+              </div>
+              
+              <div className="mt-6 p-4 bg-opacity-50 rounded-lg border">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="font-semibold">Calculated Daily Calories</h3>
+                    <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                      Based on your profile, we estimate your daily caloric needs to be:
+                    </p>
+                  </div>
+                  <div className={`font-bold text-xl ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                    {calculatedTDEE} kcal
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between mb-4 p-2 rounded-md border">
+                  <div>
+                    <h3 className="font-medium">Use Custom Calorie Goal</h3>
+                    <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                      Override the calculated value with your own target
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="useCustomCalories"
+                      className="sr-only peer"
+                      checked={profile.useCustomCalories}
+                      onChange={(e) => setProfile({
+                        ...profile,
+                        useCustomCalories: e.target.checked
+                      })}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block font-medium mb-1">Daily Calorie Target</label>
+                  <input
+                    type="number"
+                    name="targetCalories"
+                    value={profile.targetCalories}
+                    onChange={handleChange}
+                    disabled={!profile.useCustomCalories}
+                    min="1000"
+                    max="8000"
+                    className={`w-full px-3 py-2 border rounded-md ${
+                      darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'
+                    } ${!profile.useCustomCalories ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  />
+                  <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                    {profile.useCustomCalories 
+                      ? 'Enter your own daily calorie target' 
+                      : `Using calculated target based on your ${profile.weightGoal} goal`}
+                  </p>
                 </div>
               </div>
             </div>

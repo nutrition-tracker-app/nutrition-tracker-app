@@ -15,8 +15,11 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [recentMeals, setRecentMeals] = useState([]);
-  const [entryMode, setEntryMode] = useState('custom'); // 'custom' or 'database'
+  // Expanded entry modes: 'custom', 'recent', 'database', 'api'
+  const [entryMode, setEntryMode] = useState('custom');
   const [selectedFood, setSelectedFood] = useState(null);
+  // Whether to fallback to API when database search fails
+  const [useApiFallback, setUseApiFallback] = useState(false);
 
   // Close modal w/ esc key
   useEffect(() => {
@@ -86,18 +89,21 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       setSuccess(false);
       setEntryMode('custom');
       setSelectedFood(null);
+      setUseApiFallback(false);
     }
   }, [isOpen]);
 
   // Handle input changes
   const handleChange = (e) => {
-    // If we're in database mode and user tries to edit values, switch to custom mode
+    // If we're in database or API mode and user tries to edit nutritional values, switch to custom mode
     if (
-      entryMode === 'database' &&
+      (entryMode === 'database' || entryMode === 'api') &&
       e.target.name !== 'name' &&
-      e.target.name !== 'category'
+      e.target.name !== 'category' &&
+      e.target.name !== 'amount'
     ) {
-      setEntryMode('custom');
+      // Preserve the current data but switch to custom mode
+      handleSwitchMode('custom');
     }
 
     const { name, value } = e.target;
@@ -108,9 +114,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       // For text fields or selects
       processedValue = value;
     } else {
-      // For numeric fields
-      //processedValue = Number(value) || 0;
-      //processedValue = value === '' ? '' : Number(value);
+      // For numeric fields - preserve empty string but remove leading zeros
       processedValue = value === '' ? '' : value.replace(/^0+/, '');
     }
 
@@ -127,18 +131,37 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
     setSearchQuery(e.target.value);
   };
 
-  // Search for foods in the USDA database
+  // Search for foods in the database or API
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
     try {
       setIsSearching(true);
-      const results = await searchFoods(searchQuery);
       
-      // Log the full API response to console
-      console.log('Food API Search Response:', results);
-      
-      setSearchResults(results.slice(0, 5)); // Limit to first 5 results
+      // Different behavior based on entry mode
+      if (entryMode === 'database') {
+        // First try to search local database
+        const dbResults = []; // This would be replaced with a call to search local DB
+        
+        // Show results if found
+        if (dbResults.length > 0) {
+          setSearchResults(dbResults.slice(0, 5));
+        } else if (useApiFallback) {
+          // If no results and fallback is enabled, search the API
+          const apiResults = await searchFoods(searchQuery);
+          console.log('API Search (Fallback) Response:', apiResults);
+          setSearchResults(apiResults.slice(0, 5));
+        } else {
+          // No results and no fallback
+          setSearchResults([]);
+          setError('No matching foods found in database. Enable API fallback to search online.');
+        }
+      } else if (entryMode === 'api') {
+        // Direct API search
+        const results = await searchFoods(searchQuery);
+        console.log('API Search Response:', results);
+        setSearchResults(results.slice(0, 5));
+      }
     } catch (error) {
       console.error('Error searching foods:', error);
       setError('Failed to search foods. Please try again.');
@@ -151,7 +174,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
   const handleSelectFood = async (food) => {
     try {
       // Log the selected food details
-      console.log('Selected Food Item:', food);
+      console.log(`Selected Food Item (${entryMode}):`, food);
       
       // Extract common nutrients using our improved function
       const nutrients = extractNutrients(food);
@@ -162,8 +185,8 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       // Save the selected food for reference
       setSelectedFood(food);
 
-      // Switch to database mode
-      setEntryMode('database');
+      // Keep the current mode (either database or api)
+      // The user has explicitly chosen this mode
 
       // Check if allNutrients is available
       if (nutrients.allNutrients && nutrients.allNutrients.length > 0) {
@@ -179,7 +202,7 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         protein: nutrients.protein || 0,
         carbs: nutrients.carbs || 0,
         fat: nutrients.fat || 0,
-        amount: mealData.amount, // Preserve the current amount
+        amount: mealData.amount || 100, // Preserve the current amount or default to 100
         category: mealData.category, // Preserve the current category
         // Include all nutrients
         allNutrients: nutrients.allNutrients || [],
@@ -189,11 +212,11 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         sugar: nutrients.sugar || 0
       });
 
-      // Clear search
-      setSearchQuery('');
+      // Clear search results but keep the query in case they want to search again
       setSearchResults([]);
     } catch (error) {
       console.error('Error selecting food:', error);
+      setError(`Error loading food data: ${error.message}`);
     }
   };
 
@@ -212,10 +235,20 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
     setSelectedFood(null);
   };
 
-  // Switch to custom mode
-  const handleSwitchToCustom = () => {
-    setEntryMode('custom');
-    setSelectedFood(null);
+  // Switch entry mode
+  const handleSwitchMode = (mode) => {
+    setEntryMode(mode);
+    
+    // Reset food selection when switching modes
+    if (mode !== 'database') {
+      setSelectedFood(null);
+    }
+    
+    // Clear search results when switching away from search modes
+    if (mode !== 'database' && mode !== 'api') {
+      setSearchResults([]);
+      setSearchQuery('');
+    }
   };
 
   // Save meal to Firestore
@@ -315,102 +348,57 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         )}
 
         {/* Entry Mode Selector */}
-        <div className="flex justify-between mb-3">
-          <button
-            className={`px-3 py-1 rounded-md border border-black ${
-              entryMode === 'custom'
-                ? 'bg-green-400 text-white font-semibold'
-                : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
-            } transition-colors`}
-            onClick={handleSwitchToCustom}
-          >
-            Custom Entry
-          </button>
-          <div className={`text-center text-xs flex items-center ${darkMode ? 'text-slate-300' : 'text-gray-500'}`}>
-            or
-          </div>
-          <button
-            className={`px-3 py-1 rounded-md border border-black ${
-              entryMode === 'database'
-                ? 'bg-green-400 text-white font-semibold'
-                : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
-            } ${
-              !selectedFood ? 'opacity-50 cursor-not-allowed' : ''
-            } transition-colors`}
-            disabled={!selectedFood}
-            onClick={() => selectedFood && setEntryMode('database')}
-          >
-            Database Food
-          </button>
-        </div>
-
-        {/* Custom Mode: Recent Meals Dropdown (Only shown in custom mode) */}
-        {entryMode === 'custom' && recentMeals.length > 0 && (
-          <div className="mb-4">
-            <label className={`block font-medium ${darkMode ? 'text-purple-400' : 'text-purple-700'} mb-1`}>
-              Recent Meals:
-            </label>
-            <select
-              className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-700'} w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors`}
-              onChange={(e) => {
-                if (e.target.value !== '') {
-                  const selectedMeal = recentMeals[Number(e.target.value)];
-                  handleSelectRecentMeal(selectedMeal);
-                }
-              }}
-              value=""
-            >
-              <option value="" className={darkMode ? 'bg-gray-700' : 'bg-white'}>-- Select a recent meal --</option>
-              {recentMeals.map((meal, index) => (
-                <option key={meal.id} value={index} className={darkMode ? 'bg-gray-700' : 'bg-white'}>
-                  {meal.name} ({meal.calories} cal)
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Database Mode: Search Food Database */}
         <div className="mb-4">
-          <label className={`block font-medium ${darkMode ? 'text-blue-400' : 'text-blue-700'} mb-1`}>
-            Search Food Database:
+          <label className={`block font-medium ${darkMode ? 'text-green-400' : 'text-green-700'} mb-2`}>
+            Data Source:
           </label>
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              placeholder="🔍 Search for a food..."
-              className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'} flex-grow px-3 py-2 border border-blue-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors`}
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            />
+          <div className="grid grid-cols-2 gap-2 mb-3">
             <button
-              onClick={handleSearch}
-              disabled={isSearching || !searchQuery.trim()}
-              className={`border border-blue-400 px-3 py-2 rounded-md ${darkMode ? 'bg-blue-900 hover:bg-blue-800 text-blue-300' : 'bg-blue-100 hover:bg-blue-200 text-blue-700'} font-medium transition-colors disabled:opacity-50`}
+              className={`px-3 py-2 rounded-md border border-black ${
+                entryMode === 'custom'
+                  ? 'bg-green-500 text-white font-semibold'
+                  : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
+              } transition-colors`}
+              onClick={() => handleSwitchMode('custom')}
             >
-              {isSearching ? '...' : 'Search'}
+              Custom Entry
+            </button>
+            <button
+              className={`px-3 py-2 rounded-md border border-black ${
+                entryMode === 'recent'
+                  ? 'bg-purple-500 text-white font-semibold'
+                  : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
+              } transition-colors ${recentMeals.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => recentMeals.length > 0 && handleSwitchMode('recent')}
+              disabled={recentMeals.length === 0}
+            >
+              Recent Meals
+            </button>
+            <button
+              className={`px-3 py-2 rounded-md border border-black ${
+                entryMode === 'database'
+                  ? 'bg-blue-500 text-white font-semibold'
+                  : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
+              } transition-colors`}
+              onClick={() => handleSwitchMode('database')}
+            >
+              Database Search
+            </button>
+            <button
+              className={`px-3 py-2 rounded-md border border-black ${
+                entryMode === 'api'
+                  ? 'bg-orange-500 text-white font-semibold'
+                  : darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'
+              } transition-colors`}
+              onClick={() => handleSwitchMode('api')}
+            >
+              API Search
             </button>
           </div>
-
-          {/* Search Results */}
-          {searchResults.length > 0 && (
-            <div className={`mt-2 border border-blue-200 rounded-md max-h-40 overflow-y-auto ${darkMode ? 'bg-gray-700' : 'bg-white'} shadow-sm`}>
-              {searchResults.map((food, index) => (
-                <div
-                  key={index}
-                  className={`px-3 py-2 ${darkMode ? 'hover:bg-gray-600 text-slate-100' : 'hover:bg-blue-50 text-gray-800'} cursor-pointer border-b border-blue-100 last:border-b-0 transition-colors`}
-                  onClick={() => handleSelectFood(food)}
-                >
-                  {food.description || food.foodName || 'Unknown Food'}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Selected Food Info (Database Mode) */}
-        {entryMode === 'database' && selectedFood && (
+        {/* Selected Food Info (Database/API Mode) */}
+        {selectedFood && (entryMode === 'database' || entryMode === 'api') && (
           <div className={`mb-4 ${darkMode ? 'bg-blue-900' : 'bg-blue-50'} p-4 rounded-lg border border-blue-200 shadow-sm`}>
             <h3 className={`font-semibold ${darkMode ? 'text-blue-300 border-blue-700' : 'text-blue-800 border-blue-200'} border-b pb-2 mb-3`}>
               {mealData.name}
@@ -441,6 +429,99 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             </div>
           </div>
         )}
+
+        {/* Recent Meals Dropdown (Only shown in recent mode) */}
+        {entryMode === 'recent' && recentMeals.length > 0 && (
+          <div className="mb-4">
+            <label className={`block font-medium ${darkMode ? 'text-purple-400' : 'text-purple-700'} mb-1`}>
+              Select a Recent Meal:
+            </label>
+            <select
+              className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-700'} w-full px-3 py-2 border border-purple-300 rounded-md focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition-colors`}
+              onChange={(e) => {
+                if (e.target.value !== '') {
+                  const selectedMeal = recentMeals[Number(e.target.value)];
+                  handleSelectRecentMeal(selectedMeal);
+                }
+              }}
+              value=""
+            >
+              <option value="" className={darkMode ? 'bg-gray-700' : 'bg-white'}>-- Select a recent meal --</option>
+              {recentMeals.map((meal, index) => (
+                <option key={meal.id} value={index} className={darkMode ? 'bg-gray-700' : 'bg-white'}>
+                  {meal.name} ({meal.calories} cal)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Database/API Mode: Search Food */}
+        {(entryMode === 'database' || entryMode === 'api') && (
+          <div className="mb-4">
+            <label className={`block font-medium ${
+              entryMode === 'database' 
+                ? (darkMode ? 'text-blue-400' : 'text-blue-700')
+                : (darkMode ? 'text-orange-400' : 'text-orange-700')
+            } mb-1`}>
+              Search {entryMode === 'database' ? 'Database' : 'USDA Database'}:
+            </label>
+            
+            {/* API Fallback option for database mode */}
+            {entryMode === 'database' && (
+              <div className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  id="apiFallback"
+                  checked={useApiFallback}
+                  onChange={(e) => setUseApiFallback(e.target.checked)}
+                  className="mr-2"
+                />
+                <label htmlFor="apiFallback" className={`text-sm ${darkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+                  Fallback to API if not found in database
+                </label>
+              </div>
+            )}
+            
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="🔍 Search for a food..."
+                className={`${darkMode ? 'bg-gray-700 text-slate-100' : 'bg-white text-gray-800'} flex-grow px-3 py-2 border border-blue-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors`}
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              />
+              <button
+                onClick={handleSearch}
+                disabled={isSearching || !searchQuery.trim()}
+                className={`border px-3 py-2 rounded-md font-medium transition-colors disabled:opacity-50 ${
+                  entryMode === 'database'
+                    ? `border-blue-400 ${darkMode ? 'bg-blue-900 hover:bg-blue-800 text-blue-300' : 'bg-blue-100 hover:bg-blue-200 text-blue-700'}`
+                    : `border-orange-400 ${darkMode ? 'bg-orange-900 hover:bg-orange-800 text-orange-300' : 'bg-orange-100 hover:bg-orange-200 text-orange-700'}`
+                }`}
+              >
+                {isSearching ? '...' : 'Search'}
+              </button>
+            </div>
+
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className={`mt-2 border border-blue-200 rounded-md max-h-40 overflow-y-auto ${darkMode ? 'bg-gray-700' : 'bg-white'} shadow-sm`}>
+                {searchResults.map((food, index) => (
+                  <div
+                    key={index}
+                    className={`px-3 py-2 ${darkMode ? 'hover:bg-gray-600 text-slate-100' : 'hover:bg-blue-50 text-gray-800'} cursor-pointer border-b border-blue-100 last:border-b-0 transition-colors`}
+                    onClick={() => handleSelectFood(food)}
+                  >
+                    {food.description || food.foodName || 'Unknown Food'}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
 
         {/* Input Fields */}
         <div className="space-y-2">

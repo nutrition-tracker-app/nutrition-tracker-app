@@ -188,11 +188,17 @@ function Dashboard() {
   const totalCarbs = Math.round(rawTotalCarbs * 10) / 10;
   const totalFat = Math.round(rawTotalFat * 10) / 10;
 
-  // Daily goals (could be stored in user profile in the future)
-  const calorieGoal = 2000;
-  const proteinGoal = 150;
-  const carbsGoal = 200;
-  const fatGoal = 65;
+  // Get calorie goal from settings
+  const { userProfile } = useSettings();
+  const calorieGoal = userProfile?.targetCalories || 2000;
+  
+  // Calculate macronutrient goals based on calorie goal
+  // Protein: 30% of calories (4 calories per gram)
+  // Carbs: 45% of calories (4 calories per gram)
+  // Fat: 25% of calories (9 calories per gram)
+  const proteinGoal = Math.round((calorieGoal * 0.30) / 4);
+  const carbsGoal = Math.round((calorieGoal * 0.45) / 4);
+  const fatGoal = Math.round((calorieGoal * 0.25) / 9);
 
   // Calculate percentages for progress bars - safely
   let caloriePercentage = 0,
@@ -555,13 +561,26 @@ function Dashboard() {
                 >
                   {totalCalories} calories
                 </span>{' '}
-                today, which is{' '}
+                {totalExerciseCalories > 0 && (
+                  <>
+                    and burned{' '}
+                    <span className={`font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                      {totalExerciseCalories} calories
+                    </span>{' '}
+                    through exercise, for a net of{' '}
+                    <span className={`font-semibold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                      {totalNetCalories} calories
+                    </span>
+                    ,{' '}
+                  </>
+                )}
+                which is{' '}
                 <span
                   className={`font-semibold ${
                     darkMode ? 'text-blue-400' : 'text-blue-600'
                   }`}
                 >
-                  {Math.round((totalCalories / calorieGoal) * 100)}%
+                  {Math.round((totalNetCalories / calorieGoal) * 100)}%
                 </span>{' '}
                 of your daily goal.
               </p>
@@ -636,19 +655,25 @@ function Dashboard() {
               <div className="flex justify-around border-t border-gray-300 pt-3">
                 <div className="text-center">
                   <div className="font-medium">Calories</div>
-                  <div className="text-blue-600">{totalCalories}</div>
+                  <div className={`${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                    {totalExerciseCalories > 0 ? (
+                      <>{totalNetCalories} (net)</>
+                    ) : (
+                      <>{totalCalories}</>
+                    )}
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="font-medium">Protein</div>
-                  <div className="text-red-600">{totalProtein}g</div>
+                  <div className={`${darkMode ? 'text-red-400' : 'text-red-600'}`}>{totalProtein}g</div>
                 </div>
                 <div className="text-center">
                   <div className="font-medium">Carbs</div>
-                  <div className="text-green-600">{totalCarbs}g</div>
+                  <div className={`${darkMode ? 'text-green-400' : 'text-green-600'}`}>{totalCarbs}g</div>
                 </div>
                 <div className="text-center">
                   <div className="font-medium">Fat</div>
-                  <div className="text-yellow-600">{totalFat}g</div>
+                  <div className={`${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>{totalFat}g</div>
                 </div>
               </div>
             </div>
