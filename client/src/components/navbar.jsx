@@ -152,6 +152,7 @@ function NavBar() {
               darkMode ? 'text-slate-100' : 'text-black'
             } font-medium ml-auto`}
           >
+            {/*
             <Link
               to="/"
               className={`nav-link-hover ${
@@ -160,6 +161,7 @@ function NavBar() {
             >
               About Us
             </Link>
+            */}
             <Link
               to="/dashboard"
               className={`nav-link-hover ${
@@ -247,6 +249,7 @@ function NavBar() {
           } flex flex-col py-4 shadow-xl md:hidden z-50`}
         >
           <div className="container mx-auto px-6 flex flex-col space-y-3">
+            {/*
             <Link
               to="/"
               className={`py-2 px-3 rounded-lg ${
@@ -257,6 +260,7 @@ function NavBar() {
             >
               About Us
             </Link>
+            */}
             <Link
               to="/dashboard"
               className={`py-2 px-3 rounded-lg ${
