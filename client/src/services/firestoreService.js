@@ -819,6 +819,20 @@ import {
       throw error;
     }
   };
+  
+  // Function to delete a user metric (weight, sleep, exercise)
+  export const deleteUserMetric = async (metricId) => {
+    try {
+      console.log('Deleting user metric with ID:', metricId);
+      const metricRef = doc(db, 'userMetrics', metricId);
+      await deleteDoc(metricRef);
+      console.log('User metric deleted successfully');
+      return true;
+    } catch (error) {
+      console.error('Error deleting user metric:', error);
+      throw error;
+    }
+  };
 
 // Get user metrics by date (for exercise, sleep, etc.)
 export const getUserMetricsByDate = async (userId, metricType, startDate, endDate) => {
