@@ -64,7 +64,7 @@ function NavBar3() {
           <div className="flex items-center space-x-4">
             <Link
               to="/dashboard"
-              className={`left-10 px-4 py-1.5 rounded-lg shadow-md transition-all duration-200 ${
+              className={`px-4 py-1.5 rounded-lg shadow-md transition-all duration-200 ${
                 darkMode
                   ? 'bg-green-600 text-white hover:bg-green-500'
                   : 'bg-green-500 text-white hover:bg-green-600'
@@ -660,7 +660,34 @@ function NavBar3() {
                 </div>
               </div>
             ) : (
-              <div>
+              <div className="flex flex-col">
+                <Link
+                  to="/dashboard"
+                  className={`nav-link-hover ${
+                    darkMode ? 'hover:text-green-300' : 'hover:text-green-600'
+                  } transition-colors duration-200 py-1 flex items-center`}
+                >
+                  Dashboard
+                </Link>
+
+                <Link
+                  to="/diary"
+                  className={`nav-link-hover ${
+                    darkMode ? 'hover:text-green-300' : 'hover:text-green-600'
+                  } transition-colors duration-200 py-1`}
+                >
+                  Diary
+                </Link>
+
+                <Link
+                  to="/settings"
+                  className={`nav-link-hover ${
+                    darkMode ? 'hover:text-green-300' : 'hover:text-green-600'
+                  } transition-colors duration-200 py-1`}
+                >
+                  Settings
+                </Link>
+
                 <Link
                   to="/login"
                   className={`flex items-center justify-center py-2 px-3 rounded-lg ${
