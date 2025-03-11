@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 /* eslint-enable no-unused-vars */
-import NavBar from '../components/navbar';
+import NavBar3 from '../components/navbar3';
 import Footer from '../components/footer';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/settingsContext';
@@ -82,7 +82,7 @@ function Home() {
           : 'bg-gradient-to-b from-white to-gray-100'
       } flex flex-col min-h-screen`}
     >
-      <NavBar />
+      <NavBar3 />
 
       {/* Hero Section */}
       <div

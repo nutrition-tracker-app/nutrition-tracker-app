@@ -6,22 +6,26 @@ import NavBar2 from '../components/navbar2';
 import Footer from '../components/footer';
 import useAuth from '../context/getUseAuth';
 import { useSettings } from '../context/settingsContext';
-import { getUserProfile, updateUserProfile } from '../services/firestoreService';
+import {
+  getUserProfile,
+  updateUserProfile,
+} from '../services/firestoreService';
+import { Link } from 'react-router-dom';
 
 function Settings() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const { 
-    darkMode, 
-    editMode, 
-    userProfile, 
-    toggleDarkMode, 
+  const {
+    darkMode,
+    editMode,
+    userProfile,
+    toggleDarkMode,
     toggleEditMode,
     updateUserProfile: updateContextProfile,
     calculateTDEE,
-    calculateTargetCalories
+    calculateTargetCalories,
   } = useSettings();
-  
+
   // User profile settings
   const [profile, setProfile] = useState({
     displayName: '',
@@ -37,10 +41,13 @@ function Settings() {
     useCustomCalories: false, // whether to use custom calorie target
     targetCalories: 2000, // default calorie target
   });
-  
+
+  // For "navbar3"
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Calculate TDEE based on current profile values
   const [calculatedTDEE, setCalculatedTDEE] = useState(0);
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -56,27 +63,43 @@ function Settings() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!currentUser) return;
-      
+
       try {
         setIsLoading(true);
         const serverUserProfile = await getUserProfile(currentUser.uid);
-        
+
         // Use the values from the settings context
         const updatedProfile = {
-          displayName: serverUserProfile?.displayName || currentUser.displayName || userProfile?.displayName || '',
-          photoURL: serverUserProfile?.photoURL || currentUser.photoURL || userProfile?.photoURL || '',
-          height: serverUserProfile?.settings?.height || userProfile?.height || 175,
-          weight: serverUserProfile?.settings?.weight || userProfile?.weight || 70,
+          displayName:
+            serverUserProfile?.displayName ||
+            currentUser.displayName ||
+            userProfile?.displayName ||
+            '',
+          photoURL:
+            serverUserProfile?.photoURL ||
+            currentUser.photoURL ||
+            userProfile?.photoURL ||
+            '',
+          height:
+            serverUserProfile?.settings?.height || userProfile?.height || 175,
+          weight:
+            serverUserProfile?.settings?.weight || userProfile?.weight || 70,
           age: userProfile?.age || 30,
           sex: serverUserProfile?.settings?.sex || userProfile?.sex || 'male',
-          heightUnit: serverUserProfile?.settings?.heightUnit || userProfile?.heightUnit || 'cm',
-          weightUnit: serverUserProfile?.settings?.weightUnit || userProfile?.weightUnit || 'kg',
+          heightUnit:
+            serverUserProfile?.settings?.heightUnit ||
+            userProfile?.heightUnit ||
+            'cm',
+          weightUnit:
+            serverUserProfile?.settings?.weightUnit ||
+            userProfile?.weightUnit ||
+            'kg',
           activityLevel: userProfile?.activityLevel || 'moderate',
           weightGoal: userProfile?.weightGoal || 'maintain',
           useCustomCalories: userProfile?.useCustomCalories || false,
           targetCalories: userProfile?.targetCalories || 2000,
         };
-        
+
         setProfile(updatedProfile);
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -93,48 +116,48 @@ function Settings() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfile(prev => ({
+    setProfile((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleUnitChange = (e) => {
     const { name, value } = e.target;
-    
+
     // Update the unit
-    setProfile(prev => ({
+    setProfile((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
-    
+
     // Convert value if needed
     if (name === 'heightUnit') {
       if (value === 'in' && profile.heightUnit === 'cm') {
         // Convert cm to inches
-        setProfile(prev => ({
+        setProfile((prev) => ({
           ...prev,
-          height: Math.round(prev.height / 2.54)
+          height: Math.round(prev.height / 2.54),
         }));
       } else if (value === 'cm' && profile.heightUnit === 'in') {
         // Convert inches to cm
-        setProfile(prev => ({
+        setProfile((prev) => ({
           ...prev,
-          height: Math.round(prev.height * 2.54)
+          height: Math.round(prev.height * 2.54),
         }));
       }
     } else if (name === 'weightUnit') {
       if (value === 'lb' && profile.weightUnit === 'kg') {
         // Convert kg to pounds
-        setProfile(prev => ({
+        setProfile((prev) => ({
           ...prev,
-          weight: Math.round(prev.weight * 2.20462)
+          weight: Math.round(prev.weight * 2.20462),
         }));
       } else if (value === 'kg' && profile.weightUnit === 'lb') {
         // Convert pounds to kg
-        setProfile(prev => ({
+        setProfile((prev) => ({
           ...prev,
-          weight: Math.round(prev.weight / 2.20462)
+          weight: Math.round(prev.weight / 2.20462),
         }));
       }
     }
@@ -144,49 +167,51 @@ function Settings() {
   useEffect(() => {
     // Skip calculation while loading
     if (isLoading) return;
-    
+
     try {
       // Convert height if necessary
       let heightInCm = profile.height;
       if (profile.heightUnit === 'in') {
         heightInCm = profile.height * 2.54;
       }
-      
+
       // Convert weight if necessary
       let weightInKg = profile.weight;
       if (profile.weightUnit === 'lb') {
         weightInKg = profile.weight / 2.20462;
       }
-      
+
       // Calculate BMR manually to avoid context dependency
       const calculateBMR = () => {
         if (profile.sex === 'male') {
-          return (10 * weightInKg) + (6.25 * heightInCm) - (5 * profile.age) + 5;
+          return 10 * weightInKg + 6.25 * heightInCm - 5 * profile.age + 5;
         } else {
-          return (10 * weightInKg) + (6.25 * heightInCm) - (5 * profile.age) - 161;
+          return 10 * weightInKg + 6.25 * heightInCm - 5 * profile.age - 161;
         }
       };
-      
+
       // Apply activity multiplier
       const activityMultipliers = {
         sedentary: 1.2,
         light: 1.375,
         moderate: 1.55,
         active: 1.725,
-        veryActive: 1.9
+        veryActive: 1.9,
       };
-      
+
       const bmr = calculateBMR();
-      const multiplier = activityMultipliers[profile.activityLevel] || activityMultipliers.moderate;
+      const multiplier =
+        activityMultipliers[profile.activityLevel] ||
+        activityMultipliers.moderate;
       const tdee = Math.round(bmr * multiplier);
-      
+
       // Store calculated TDEE
       setCalculatedTDEE(tdee);
-      
+
       // If not using custom calories, update the target calories
       if (!profile.useCustomCalories) {
         let targetCals;
-        
+
         switch (profile.weightGoal) {
           case 'lose':
             targetCals = Math.round(tdee * 0.8); // 20% deficit
@@ -197,29 +222,38 @@ function Settings() {
           default: // maintain
             targetCals = tdee;
         }
-        
-        setProfile(prev => ({
+
+        setProfile((prev) => ({
           ...prev,
-          targetCalories: targetCals
+          targetCalories: targetCals,
         }));
       }
     } catch (error) {
       console.error('Error calculating TDEE:', error);
     }
-  }, [profile.sex, profile.height, profile.weight, profile.age, 
-      profile.activityLevel, profile.weightGoal, profile.heightUnit, 
-      profile.weightUnit, profile.useCustomCalories, isLoading]);
+  }, [
+    profile.sex,
+    profile.height,
+    profile.weight,
+    profile.age,
+    profile.activityLevel,
+    profile.weightGoal,
+    profile.heightUnit,
+    profile.weightUnit,
+    profile.useCustomCalories,
+    isLoading,
+  ]);
 
   const handleSave = async () => {
     if (!currentUser) {
       setError('You must be logged in to save settings.');
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setError('');
-      
+
       // Update user profile with settings
       await updateUserProfile(currentUser.uid, {
         displayName: profile.displayName,
@@ -236,9 +270,9 @@ function Settings() {
           useCustomCalories: profile.useCustomCalories,
           targetCalories: profile.targetCalories,
           darkMode: darkMode,
-        }
+        },
       });
-      
+
       // Update the context profile
       updateContextProfile({
         sex: profile.sex,
@@ -248,16 +282,15 @@ function Settings() {
         activityLevel: profile.activityLevel,
         weightGoal: profile.weightGoal,
         useCustomCalories: profile.useCustomCalories,
-        targetCalories: profile.targetCalories
+        targetCalories: profile.targetCalories,
       });
-      
+
       setSuccess('Settings saved successfully!');
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess('');
       }, 3000);
-      
     } catch (error) {
       console.error('Error saving settings:', error);
       setError('Failed to save settings. Please try again.');
@@ -267,12 +300,81 @@ function Settings() {
   };
 
   return (
-    <div className={`flex flex-col min-h-screen ${darkMode ? 'bg-slate-900 text-slate-50' : 'bg-white'}`}>
+    <div
+      className={`flex flex-col min-h-screen ${
+        darkMode ? 'bg-slate-900 text-slate-50' : 'bg-white'
+      }`}
+    >
       <NavBar2 />
 
       {/* Page Content */}
-      <div className={`border-b border-black flex flex-col items-start py-2 px-6 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
+      {/*}
+      <div
+        className={`border-b border-black flex flex-col items-start py-2 px-6 ${
+          darkMode ? 'bg-slate-700' : 'bg-gray-200'
+        }`}
+      >
         <h1 className="text-xl font-bold">Settings</h1>
+      </div>
+      */}
+      <div
+        className={`border-b border-black flex flex-col items-start py-2 px-6 ${
+          darkMode ? 'bg-slate-700' : 'bg-gray-200'
+        }`}
+      >
+        {/* Navigation Buttons */}
+        <div className="flex space-x-4 m-1">
+          <Link
+            to="/dashboard"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Dashboard
+          </Link>
+          {/*
+                <Link
+                  to="/log-meal"
+                  className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
+                >
+                  Log Meal
+                </Link>
+                */}
+          {/*}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Log Meal
+          </button>
+          */}
+          <Link
+            to="/diary"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Diary
+          </Link>
+          <Link
+            to="/meal-history"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Meal History
+          </Link>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -286,7 +388,7 @@ function Settings() {
                 {error}
               </div>
             )}
-            
+
             {success && (
               <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4">
                 {success}
@@ -294,9 +396,15 @@ function Settings() {
             )}
 
             {/* Profile Section */}
-            <div className={`mb-8 p-6 rounded-lg shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} border border-black`}>
-              <h2 className="text-xl font-bold mb-4 border-b pb-2">Profile Settings</h2>
-              
+            <div
+              className={`mb-8 p-6 rounded-lg shadow-md ${
+                darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
+              } border border-black`}
+            >
+              <h2 className="text-xl font-bold mb-4 border-b pb-2">
+                Profile Settings
+              </h2>
+
               <div className="mb-4">
                 <label className="block font-medium mb-1">Display Name</label>
                 <input
@@ -304,18 +412,28 @@ function Settings() {
                   name="displayName"
                   value={profile.displayName}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
                 />
               </div>
-              
+
               <div className="mb-4">
-                <label className="block font-medium mb-1">Profile Picture URL</label>
+                <label className="block font-medium mb-1">
+                  Profile Picture URL
+                </label>
                 <input
                   type="text"
                   name="photoURL"
                   value={profile.photoURL}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
                   placeholder="https://example.com/profile.jpg"
                 />
                 {profile.photoURL && (
@@ -328,14 +446,18 @@ function Settings() {
                   </div>
                 )}
               </div>
-              
+
               <div className="mb-4">
                 <label className="block font-medium mb-1">Sex</label>
                 <select
                   name="sex"
                   value={profile.sex}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
                 >
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -345,9 +467,15 @@ function Settings() {
             </div>
 
             {/* Physical Measurements */}
-            <div className={`mb-8 p-6 rounded-lg shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} border border-black`}>
-              <h2 className="text-xl font-bold mb-4 border-b pb-2">Physical Measurements</h2>
-              
+            <div
+              className={`mb-8 p-6 rounded-lg shadow-md ${
+                darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
+              } border border-black`}
+            >
+              <h2 className="text-xl font-bold mb-4 border-b pb-2">
+                Physical Measurements
+              </h2>
+
               <div className="mb-4">
                 <label className="block font-medium mb-1">Height</label>
                 <div className="flex items-center gap-2">
@@ -357,20 +485,28 @@ function Settings() {
                     value={profile.height}
                     onChange={handleChange}
                     min="0"
-                    className={`flex-grow px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                    className={`flex-grow px-3 py-2 border rounded-md ${
+                      darkMode
+                        ? 'bg-slate-700 border-slate-600 text-white'
+                        : 'bg-white border-gray-300'
+                    }`}
                   />
                   <select
                     name="heightUnit"
                     value={profile.heightUnit}
                     onChange={handleUnitChange}
-                    className={`px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                    className={`px-3 py-2 border rounded-md ${
+                      darkMode
+                        ? 'bg-slate-700 border-slate-600 text-white'
+                        : 'bg-white border-gray-300'
+                    }`}
                   >
                     <option value="cm">cm</option>
                     <option value="in">in</option>
                   </select>
                 </div>
               </div>
-              
+
               <div className="mb-4">
                 <label className="block font-medium mb-1">Weight</label>
                 <div className="flex items-center gap-2">
@@ -380,20 +516,28 @@ function Settings() {
                     value={profile.weight}
                     onChange={handleChange}
                     min="0"
-                    className={`flex-grow px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                    className={`flex-grow px-3 py-2 border rounded-md ${
+                      darkMode
+                        ? 'bg-slate-700 border-slate-600 text-white'
+                        : 'bg-white border-gray-300'
+                    }`}
                   />
                   <select
                     name="weightUnit"
                     value={profile.weightUnit}
                     onChange={handleUnitChange}
-                    className={`px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                    className={`px-3 py-2 border rounded-md ${
+                      darkMode
+                        ? 'bg-slate-700 border-slate-600 text-white'
+                        : 'bg-white border-gray-300'
+                    }`}
                   >
                     <option value="kg">kg</option>
                     <option value="lb">lb</option>
                   </select>
                 </div>
               </div>
-              
+
               <div className="mb-4">
                 <label className="block font-medium mb-1">Age</label>
                 <input
@@ -403,62 +547,101 @@ function Settings() {
                   onChange={handleChange}
                   min="1"
                   max="120"
-                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
                 />
               </div>
             </div>
-            
+
             {/* Nutrition & Calorie Settings */}
-            <div className={`mb-8 p-6 rounded-lg shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} border border-black`}>
-              <h2 className="text-xl font-bold mb-4 border-b pb-2">Nutrition & Calorie Settings</h2>
-              
+            <div
+              className={`mb-8 p-6 rounded-lg shadow-md ${
+                darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
+              } border border-black`}
+            >
+              <h2 className="text-xl font-bold mb-4 border-b pb-2">
+                Nutrition & Calorie Settings
+              </h2>
+
               <div className="mb-4">
                 <label className="block font-medium mb-1">Activity Level</label>
                 <select
                   name="activityLevel"
                   value={profile.activityLevel}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
                 >
-                  <option value="sedentary">Sedentary (little or no exercise)</option>
+                  <option value="sedentary">
+                    Sedentary (little or no exercise)
+                  </option>
                   <option value="light">Light (exercise 1-3 days/week)</option>
-                  <option value="moderate">Moderate (exercise 3-5 days/week)</option>
-                  <option value="active">Active (exercise 6-7 days/week)</option>
-                  <option value="veryActive">Very Active (physical job or 2x training)</option>
+                  <option value="moderate">
+                    Moderate (exercise 3-5 days/week)
+                  </option>
+                  <option value="active">
+                    Active (exercise 6-7 days/week)
+                  </option>
+                  <option value="veryActive">
+                    Very Active (physical job or 2x training)
+                  </option>
                 </select>
               </div>
-              
+
               <div className="mb-4">
                 <label className="block font-medium mb-1">Weight Goal</label>
                 <select
                   name="weightGoal"
                   value={profile.weightGoal}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'}`}
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    darkMode
+                      ? 'bg-slate-700 border-slate-600 text-white'
+                      : 'bg-white border-gray-300'
+                  }`}
                 >
                   <option value="lose">Lose Weight</option>
                   <option value="maintain">Maintain Weight</option>
                   <option value="gain">Gain Weight</option>
                 </select>
               </div>
-              
+
               <div className="mt-6 p-4 bg-opacity-50 rounded-lg border">
                 <div className="flex justify-between items-center mb-4">
                   <div>
                     <h3 className="font-semibold">Calculated Daily Calories</h3>
-                    <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                      Based on your profile, we estimate your daily caloric needs to be:
+                    <p
+                      className={`text-sm ${
+                        darkMode ? 'text-slate-400' : 'text-gray-600'
+                      }`}
+                    >
+                      Based on your profile, we estimate your daily caloric
+                      needs to be:
                     </p>
                   </div>
-                  <div className={`font-bold text-xl ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                  <div
+                    className={`font-bold text-xl ${
+                      darkMode ? 'text-blue-400' : 'text-blue-600'
+                    }`}
+                  >
                     {calculatedTDEE} kcal
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between mb-4 p-2 rounded-md border">
                   <div>
                     <h3 className="font-medium">Use Custom Calorie Goal</h3>
-                    <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                    <p
+                      className={`text-sm ${
+                        darkMode ? 'text-slate-400' : 'text-gray-600'
+                      }`}
+                    >
                       Override the calculated value with your own target
                     </p>
                   </div>
@@ -468,17 +651,21 @@ function Settings() {
                       name="useCustomCalories"
                       className="sr-only peer"
                       checked={profile.useCustomCalories}
-                      onChange={(e) => setProfile({
-                        ...profile,
-                        useCustomCalories: e.target.checked
-                      })}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          useCustomCalories: e.target.checked,
+                        })
+                      }
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
                   </label>
                 </div>
-                
+
                 <div className="mb-4">
-                  <label className="block font-medium mb-1">Daily Calorie Target</label>
+                  <label className="block font-medium mb-1">
+                    Daily Calorie Target
+                  </label>
                   <input
                     type="number"
                     name="targetCalories"
@@ -488,12 +675,22 @@ function Settings() {
                     min="1000"
                     max="8000"
                     className={`w-full px-3 py-2 border rounded-md ${
-                      darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300'
-                    } ${!profile.useCustomCalories ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      darkMode
+                        ? 'bg-slate-700 border-slate-600 text-white'
+                        : 'bg-white border-gray-300'
+                    } ${
+                      !profile.useCustomCalories
+                        ? 'opacity-50 cursor-not-allowed'
+                        : ''
+                    }`}
                   />
-                  <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                    {profile.useCustomCalories 
-                      ? 'Enter your own daily calorie target' 
+                  <p
+                    className={`text-xs mt-1 ${
+                      darkMode ? 'text-slate-400' : 'text-gray-600'
+                    }`}
+                  >
+                    {profile.useCustomCalories
+                      ? 'Enter your own daily calorie target'
                       : `Using calculated target based on your ${profile.weightGoal} goal`}
                   </p>
                 </div>
@@ -501,13 +698,25 @@ function Settings() {
             </div>
 
             {/* Appearance Settings */}
-            <div className={`mb-8 p-6 rounded-lg shadow-md ${darkMode ? 'bg-slate-800' : 'bg-[#efffce]'} border border-black`}>
-              <h2 className="text-xl font-bold mb-4 border-b pb-2">Appearance</h2>
-              
+            <div
+              className={`mb-8 p-6 rounded-lg shadow-md ${
+                darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
+              } border border-black`}
+            >
+              <h2 className="text-xl font-bold mb-4 border-b pb-2">
+                Appearance
+              </h2>
+
               <div className="flex items-center justify-between mb-4 p-3 rounded-md border">
                 <div>
                   <h3 className="font-medium">Dark Mode</h3>
-                  <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>Switch between light and dark color themes</p>
+                  <p
+                    className={`text-sm ${
+                      darkMode ? 'text-slate-400' : 'text-gray-600'
+                    }`}
+                  >
+                    Switch between light and dark color themes
+                  </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -519,11 +728,17 @@ function Settings() {
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
                 </label>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 rounded-md border">
                 <div>
                   <h3 className="font-medium">Edit Mode</h3>
-                  <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>Enable to edit your diary entries</p>
+                  <p
+                    className={`text-sm ${
+                      darkMode ? 'text-slate-400' : 'text-gray-600'
+                    }`}
+                  >
+                    Enable to edit your diary entries
+                  </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -543,9 +758,10 @@ function Settings() {
                 onClick={handleSave}
                 disabled={isLoading}
                 className={`px-6 py-2 rounded-md font-medium border border-black
-                  ${darkMode 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
-                    : 'bg-green-500 hover:bg-green-600 text-white'
+                  ${
+                    darkMode
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-green-500 hover:bg-green-600 text-white'
                   } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {isLoading ? 'Saving...' : 'Save Settings'}
