@@ -11,8 +11,19 @@ import {
   getLatestUserMetric,
   getUserStreak,
   getUserMetricsByDate,
+  getUserWeightHistory,
 } from '../services/firestoreService';
 import { useSettings } from '../context/settingsContext';
+
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from 'recharts';
 
 function Dashboard() {
   const { currentUser } = useAuth();
@@ -27,6 +38,7 @@ function Dashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [weightHistory, setWeightHistory] = useState([]);
   const navigate = useNavigate();
 
   // For debug purposes
@@ -110,6 +122,34 @@ function Dashboard() {
 
     fetchData();
   }, [currentUser, isModalOpen]);
+
+  // Fetch user's all past weight entries
+  useEffect(() => {
+    const fetchWeightHistory = async () => {
+      if (!currentUser) return;
+
+      try {
+        console.log('Fetching weight history...');
+        const history = await getUserWeightHistory(currentUser.uid);
+
+        if (!history || history.length === 0) {
+          console.warn('No weight history data found.');
+          return;
+        }
+
+        setWeightHistory(
+          history.map((entry) => ({
+            date: new Date(entry.date.toDate()).toLocaleDateString(),
+            weight: entry.value,
+          }))
+        );
+      } catch (error) {
+        console.error('Error fetching weight history:', error);
+      }
+    };
+
+    fetchWeightHistory();
+  }, [currentUser]);
 
   // Calculate total calories and macros for today
   const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
@@ -495,7 +535,7 @@ function Dashboard() {
           </div>
 
           {/* Nutrition Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 w-full max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6 w-full max-w-4xl mx-auto">
             {/* Calories Card */}
             <div
               className={`border border-black rounded-md shadow-md ${
@@ -711,11 +751,67 @@ function Dashboard() {
               </div>
             </div>
 
+            {/* Weight History Chart Card */}
+            <div
+              className={`border border-black rounded-md shadow-md p-6 ${
+                darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
+              }`}
+            >
+              <h3
+                className={`text-xl font-semibold mb-3 text-center border-b pb-2 ${
+                  darkMode ? 'border-slate-600' : 'border-gray-300'
+                }`}
+              >
+                Weight Progress
+              </h3>
+              {weightHistory.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={weightHistory}>
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(tick) =>
+                        new Date(tick).toLocaleDateString('en-US', {
+                          month: 'numeric',
+                          day: 'numeric',
+                        })
+                      }
+                    />
+                    <YAxis
+                      domain={['dataMin - 5', 'dataMax + 5']} // Dynamically adjust based on min/max weight
+                      tickCount={5} // Adjusts the number of ticks
+                      label={{
+                        value: 'Weight (lbs)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        style: { textAnchor: 'middle', fontSize: 12 },
+                      }}
+                    />
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="weight"
+                      stroke="#8884d8"
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p
+                  className={`text-center text-gray-600 ${
+                    darkMode ? 'border-slate-600' : 'border-gray-300'
+                  } `}
+                >
+                  No weight data available
+                </p>
+              )}
+            </div>
+
             {/* Recent Meals Section */}
             <div
               className={`w-full max-w-2xl mx-auto mt-6 p-4 border border-black rounded-md ${
                 darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
-              } md:col-span-2`}
+              } md:col-span-3`}
             >
               <div
                 className={`flex justify-between items-center mb-3 border-b ${
