@@ -108,11 +108,20 @@ function Diary() {
           ).toString(),
         });
 
+        // Explicitly create a date object for the selected date
+        const selectedDateObj = new Date(
+          dateParts[0],
+          dateParts[1] - 1,
+          dateParts[2]
+        );
+        console.log('Created date object for meals query:', selectedDateObj.toString());
+
         // Fetch meals for selected date
         const userMeals = await getUserMealsByDate(
           currentUser.uid,
-          selectedDate
+          selectedDateObj
         );
+        console.log(`Found ${userMeals.length} meals for ${selectedDate}`, userMeals);
         setMeals(userMeals);
 
         // Fetch metrics for selected date
@@ -2003,10 +2012,38 @@ function Diary() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          // Use our shared function to refresh meals
-          fetchAndProcessMeals();
+          // Force a re-fetch of diary data after meal is added
+          const fetchDiaryDataAfterAdd = async () => {
+            if (!currentUser) return;
+            console.log('Refreshing meals after adding a new meal for date:', selectedDate);
+            
+            try {
+              // Convert selected date string to a date object
+              const dateParts = selectedDate.split('-').map(Number);
+              const selectedDateObj = new Date(
+                dateParts[0],
+                dateParts[1] - 1, 
+                dateParts[2]
+              );
+              
+              // Fetch updated meals for the selected date
+              const updatedMeals = await getUserMealsByDate(
+                currentUser.uid,
+                selectedDateObj
+              );
+              
+              console.log(`Fetched ${updatedMeals.length} meals after modal closed`);
+              setMeals(updatedMeals);
+            } catch (error) {
+              console.error('Error refreshing meals after add:', error);
+            }
+          };
+          
+          // Call the function to refresh meals
+          fetchDiaryDataAfterAdd();
         }}
         userId={currentUser?.uid}
+        selectedDate={selectedDate}
       />
 
       <Footer />

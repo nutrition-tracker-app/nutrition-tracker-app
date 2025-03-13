@@ -1,12 +1,12 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 /* eslint-enable no-unused-vars */
-import { addMeal, getUserDiaryEntries } from '../services/firestoreService';
+import { addMeal, getUserDiaryEntries, searchFoodsInDatabase } from '../services/firestoreService';
 import PropTypes from 'prop-types';
 import { searchFoods, extractNutrients } from '../services/foodApiService';
 import { useSettings } from '../context/settingsContext';
 
-function QuickAddMealModal({ isOpen, onClose, userId }) {
+function QuickAddMealModal({ isOpen, onClose, userId, selectedDate }) {
   const { darkMode } = useSettings();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -137,20 +137,29 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
 
     try {
       setIsSearching(true);
+      setError('');
       
       // Different behavior based on entry mode
       if (entryMode === 'database') {
         // First try to search local database
-        const dbResults = []; // This would be replaced with a call to search local DB
+        const dbResults = await searchFoodsInDatabase(searchQuery);
+        console.log('Database Search Response:', dbResults);
         
         // Show results if found
         if (dbResults.length > 0) {
-          setSearchResults(dbResults.slice(0, 5));
+          setSearchResults(dbResults);
         } else if (useApiFallback) {
           // If no results and fallback is enabled, search the API
           const apiResults = await searchFoods(searchQuery);
           console.log('API Search (Fallback) Response:', apiResults);
-          setSearchResults(apiResults.slice(0, 5));
+          
+          // Mark these results as coming from API
+          const markedResults = apiResults.map(item => ({
+            ...item,
+            source: 'api'
+          }));
+          
+          setSearchResults(markedResults);
         } else {
           // No results and no fallback
           setSearchResults([]);
@@ -160,7 +169,14 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
         // Direct API search
         const results = await searchFoods(searchQuery);
         console.log('API Search Response:', results);
-        setSearchResults(results.slice(0, 5));
+        
+        // Mark these results as coming from API
+        const markedResults = results.map(item => ({
+          ...item,
+          source: 'api'
+        }));
+        
+        setSearchResults(markedResults);
       }
     } catch (error) {
       console.error('Error searching foods:', error);
@@ -176,41 +192,60 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       // Log the selected food details
       console.log(`Selected Food Item (${entryMode}):`, food);
       
-      // Extract common nutrients using our improved function
-      const nutrients = extractNutrients(food);
-      
-      // Log the extracted nutrients
-      console.log('Extracted Nutrients:', nutrients);
-
-      // Save the selected food for reference
-      setSelectedFood(food);
-
-      // Keep the current mode (either database or api)
-      // The user has explicitly chosen this mode
-
-      // Check if allNutrients is available
-      if (nutrients.allNutrients && nutrients.allNutrients.length > 0) {
-        console.log(`Food has ${nutrients.allNutrients.length} detailed nutrients`);
+      // Different handling based on source
+      if (food.source === 'database') {
+        // For database items, we already have all the nutrition data
+        console.log('Using pre-extracted nutrients from database');
+        
+        // Update the meal data directly with the food's information
+        setMealData({
+          name: food.description || 'Unknown Food',
+          calories: food.calories || 0,
+          protein: food.protein || 0,
+          carbs: food.carbs || 0,
+          fat: food.fat || 0,
+          amount: mealData.amount || 100, // Preserve the current amount or default to 100
+          category: mealData.category, // Preserve the current category
+          // Include all nutrients
+          allNutrients: food.allNutrients || [],
+          sodium: food.sodium || 0,
+          cholesterol: food.cholesterol || 0,
+          fiber: food.fiber || 0, 
+          sugar: food.sugar || 0,
+          // Store the database ID
+          id: food.id
+        });
       } else {
-        console.warn('No detailed nutrients found in food data');
+        // For API items, extract the nutrients
+        const nutrients = extractNutrients(food);
+        console.log('Extracted Nutrients from API data:', nutrients);
+        
+        // Check if allNutrients is available
+        if (nutrients.allNutrients && nutrients.allNutrients.length > 0) {
+          console.log(`API food has ${nutrients.allNutrients.length} detailed nutrients`);
+        } else {
+          console.warn('No detailed nutrients found in API food data');
+        }
+        
+        // Update the meal data with the API food's information
+        setMealData({
+          name: food.description || food.foodName || 'Unknown Food',
+          calories: nutrients.calories || 0,
+          protein: nutrients.protein || 0,
+          carbs: nutrients.carbs || 0,
+          fat: nutrients.fat || 0,
+          amount: mealData.amount || 100,
+          category: mealData.category,
+          allNutrients: nutrients.allNutrients || [],
+          sodium: nutrients.sodium || 0,
+          cholesterol: nutrients.cholesterol || 0,
+          fiber: nutrients.fiber || 0, 
+          sugar: nutrients.sugar || 0
+        });
       }
       
-      // Update the meal data with the food's information
-      setMealData({
-        name: food.description || food.foodName || 'Unknown Food',
-        calories: nutrients.calories || 0,
-        protein: nutrients.protein || 0,
-        carbs: nutrients.carbs || 0,
-        fat: nutrients.fat || 0,
-        amount: mealData.amount || 100, // Preserve the current amount or default to 100
-        category: mealData.category, // Preserve the current category
-        // Include all nutrients
-        allNutrients: nutrients.allNutrients || [],
-        sodium: nutrients.sodium || 0,
-        cholesterol: nutrients.cholesterol || 0,
-        fiber: nutrients.fiber || 0, 
-        sugar: nutrients.sugar || 0
-      });
+      // Save the selected food for reference
+      setSelectedFood(food);
 
       // Clear search results but keep the query in case they want to search again
       setSearchResults([]);
@@ -274,12 +309,14 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
       const nutrients = {
         ...mealData,
         amount: finalAmount,
-        date: new Date(), // Store the current date
+        date: selectedDate ? new Date(selectedDate) : new Date(), // Use selected date or current date
       };
 
       // Enhanced logging
       console.log('=== MEAL SAVE DETAILS ===');
       console.log('Adding meal with data:', nutrients);
+      console.log('Using date for meal:', selectedDate ? selectedDate : 'current date');
+      console.log('Date converted to:', nutrients.date.toString());
       console.log('Meal nutrient values:', {
         calories: nutrients.calories,
         protein: nutrients.protein,
@@ -469,17 +506,22 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
             
             {/* API Fallback option for database mode */}
             {entryMode === 'database' && (
-              <div className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  id="apiFallback"
-                  checked={useApiFallback}
-                  onChange={(e) => setUseApiFallback(e.target.checked)}
-                  className="mr-2"
-                />
-                <label htmlFor="apiFallback" className={`text-sm ${darkMode ? 'text-slate-300' : 'text-gray-600'}`}>
-                  Fallback to API if not found in database
-                </label>
+              <div className="flex flex-col mb-2">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="apiFallback"
+                    checked={useApiFallback}
+                    onChange={(e) => setUseApiFallback(e.target.checked)}
+                    className="mr-2"
+                  />
+                  <label htmlFor="apiFallback" className={`text-sm ${darkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+                    Fallback to API if not found in database
+                  </label>
+                </div>
+                <div className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Tip: Try simple terms like &quot;chicken&quot; or &quot;apple&quot; - searches match any part of the food name
+                </div>
               </div>
             )}
             
@@ -514,7 +556,21 @@ function QuickAddMealModal({ isOpen, onClose, userId }) {
                     className={`px-3 py-2 ${darkMode ? 'hover:bg-gray-600 text-slate-100' : 'hover:bg-blue-50 text-gray-800'} cursor-pointer border-b border-blue-100 last:border-b-0 transition-colors`}
                     onClick={() => handleSelectFood(food)}
                   >
-                    {food.description || food.foodName || 'Unknown Food'}
+                    <div className="flex justify-between items-center">
+                      <span>{food.description || food.foodName || 'Unknown Food'}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        food.source === 'database' 
+                          ? `${darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-100 text-blue-800'}`
+                          : `${darkMode ? 'bg-orange-800 text-orange-200' : 'bg-orange-100 text-orange-800'}`
+                      }`}>
+                        {food.source === 'database' ? 'DB' : 'API'}
+                      </span>
+                    </div>
+                    {food.calories && (
+                      <div className="text-xs text-gray-500">
+                        {food.calories} cal | P: {food.protein || 0}g | C: {food.carbs || 0}g | F: {food.fat || 0}g
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -706,6 +762,12 @@ QuickAddMealModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   userId: PropTypes.string.isRequired,
+  selectedDate: PropTypes.string, // Optional YYYY-MM-DD date string
+};
+
+// Default props
+QuickAddMealModal.defaultProps = {
+  selectedDate: null, // Default to current date if not provided
 };
 
 export default QuickAddMealModal;

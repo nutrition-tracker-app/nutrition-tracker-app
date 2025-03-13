@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
   setDoc,
+  limit,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -104,7 +105,7 @@ export const createMeal = async (mealData) => {
     console.log('Meal data:', mealData);
 
     const mealsRef = collection(db, 'meals');
-
+    
     // Process the meal data with consistent precision
     const mealToAdd = {
       name: mealData.name,
@@ -135,6 +136,47 @@ export const createMeal = async (mealData) => {
       updatedAt: serverTimestamp(),
       updatedBy: mealData.updatedBy || null,
     };
+
+    // Check for duplicates before adding
+    let existingMealId = null;
+    
+    // First check by fdcId in sourceDetails if available (for API foods)
+    if (mealToAdd.sourceDetails && mealToAdd.sourceDetails.fdcId) {
+      const fdcIdQuery = query(
+        mealsRef, 
+        where('sourceDetails.fdcId', '==', mealToAdd.sourceDetails.fdcId),
+        limit(1)
+      );
+      const fdcIdSnapshot = await getDocs(fdcIdQuery);
+      
+      if (!fdcIdSnapshot.empty) {
+        const doc = fdcIdSnapshot.docs[0];
+        console.log(`Found existing meal with fdcId ${mealToAdd.sourceDetails.fdcId}:`, doc.id);
+        existingMealId = doc.id;
+      }
+    }
+    
+    // If not found by fdcId, check by exact name match
+    if (!existingMealId && mealToAdd.name) {
+      const nameQuery = query(
+        mealsRef,
+        where('name', '==', mealToAdd.name),
+        limit(1)
+      );
+      const nameSnapshot = await getDocs(nameQuery);
+      
+      if (!nameSnapshot.empty) {
+        const doc = nameSnapshot.docs[0];
+        console.log(`Found existing meal with name "${mealToAdd.name}":`, doc.id);
+        existingMealId = doc.id;
+      }
+    }
+    
+    // If an existing meal was found, return its ID instead of creating a new one
+    if (existingMealId) {
+      console.log('Using existing meal definition:', existingMealId);
+      return existingMealId;
+    }
 
     console.log('Final meal definition to save:', mealToAdd);
     // Check if allNutrients is properly set
@@ -328,13 +370,47 @@ export const addMeal = async (userId, mealData) => {
 
     console.log(`Adding meal to diary with category: ${category}`);
 
-    // Then add it to the user's diary
-    return await addMealToDiary(
+    // Create a custom date from mealData.date if provided, otherwise use current date
+    let entryDate = new Date();
+    if (mealData.date) {
+      if (mealData.date instanceof Date) {
+        entryDate = mealData.date;
+      } else if (typeof mealData.date === 'string') {
+        // Handle string date (YYYY-MM-DD)
+        entryDate = new Date(mealData.date);
+      }
+    }
+    console.log(`Using entry date: ${entryDate.toISOString()}`);
+
+    // Create a custom user meal entry
+    const userMealsRef = collection(db, 'userMeals');
+    
+    // Get meal to calculate multiplier
+    const meal = await getMeal(mealId);
+    if (!meal) {
+      throw new Error('Meal not found');
+    }
+    
+    const baseAmount = meal.baseAmount || 100;
+    const multiplier = (mealData.amount || 100) / baseAmount;
+    
+    const userMealEntry = {
       userId,
       mealId,
-      mealData.amount || 100,
-      category
-    );
+      date: Timestamp.fromDate(entryDate),
+      category: category,
+      amount: Number(mealData.amount || 100),
+      multiplier,
+      createdAt: serverTimestamp(),
+    };
+    
+    console.log('Adding entry to diary with custom date:', userMealEntry);
+    const docRef = await addDoc(userMealsRef, userMealEntry);
+    
+    // Update user streak
+    await updateUserStreak(userId);
+    
+    return docRef.id;
   } catch (error) {
     console.error('Error in legacy addMeal:', error);
     throw error;
@@ -352,11 +428,35 @@ export const getUserDiaryEntries = async (userId, date = null) => {
     let q;
 
     if (date) {
+      // Ensure we're working with a valid Date object, not a string
+      let dateObj;
+      if (date instanceof Date) {
+        dateObj = date;
+      } else if (typeof date === 'string') {
+        // If it's a string like "YYYY-MM-DD", convert to Date
+        const parts = date.split('-').map(Number);
+        if (parts.length === 3) {
+          dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+        } else {
+          dateObj = new Date(date);
+        }
+      } else {
+        dateObj = new Date(date);
+      }
+      
+      console.log('Converting date to timestamp range:', dateObj.toString());
+      
       // Convert date to timestamp range (start of day to end of day)
-      const startOfDay = new Date(date);
+      const startOfDay = new Date(dateObj);
       startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
+      const endOfDay = new Date(dateObj);
       endOfDay.setHours(23, 59, 59, 999);
+      
+      console.log('Date range for query:', {
+        original: dateObj.toString(),
+        start: startOfDay.toString(),
+        end: endOfDay.toString()
+      });
 
       q = query(
         userMealsRef,
@@ -480,7 +580,15 @@ export const updateDiaryEntry = async (entryId, entryData) => {
 
 export const getUserMealsByDate = async (userId, date) => {
   try {
-    return await getUserDiaryEntries(userId, date);
+    console.log('getUserMealsByDate called with date:', date);
+    if (date) {
+      // Ensure we're always dealing with a proper Date object
+      const dateObj = date instanceof Date ? date : new Date(date);
+      console.log('Date converted to:', dateObj.toString());
+      return await getUserDiaryEntries(userId, dateObj);
+    } else {
+      return await getUserDiaryEntries(userId);
+    }
   } catch (error) {
     console.error('Error in getUserMealsByDate:', error);
     return [];
@@ -637,33 +745,65 @@ export const trackExercise = async (
   }
 };
 
-export const getLatestUserMetric = async (userId, metricType) => {
+export const getLatestUserMetric = async (userId, metricType, forToday = false) => {
   try {
     if (!userId || !metricType) {
       return null;
     }
 
     const metricsRef = collection(db, 'userMetrics');
-    const q = query(
-      metricsRef,
-      where('userId', '==', userId),
-      where('type', '==', metricType),
-      orderBy('date', 'desc')
-      // Limit to most recent
-      // limit(1) // (Not available in our Firebase version)
-    );
+    
+    let q;
+    
+    if (forToday) {
+      // Get only metrics from today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      q = query(
+        metricsRef,
+        where('userId', '==', userId),
+        where('type', '==', metricType),
+        where('date', '>=', Timestamp.fromDate(today)),
+        where('date', '<', Timestamp.fromDate(tomorrow)),
+        orderBy('date', 'desc')
+      );
+      
+      console.log(`Getting latest ${metricType} metric for today (${today.toLocaleDateString()})`);
+    } else {
+      // Get latest metric of all time
+      q = query(
+        metricsRef,
+        where('userId', '==', userId),
+        where('type', '==', metricType),
+        orderBy('date', 'desc')
+      );
+      
+      console.log(`Getting latest ${metricType} metric (all time)`);
+    }
 
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
+      console.log(`No ${metricType} metrics found ${forToday ? 'for today' : ''}`);
       return null;
     }
 
     // Since we can't use limit(1), get the first doc
     const doc = querySnapshot.docs[0];
+    const data = doc.data();
+    
+    console.log(`Found ${metricType} metric: `, {
+      id: doc.id,
+      date: data.date?.toDate()?.toLocaleDateString() || 'unknown date',
+      value: data.value
+    });
+    
     return {
       id: doc.id,
-      ...doc.data(),
+      ...data,
     };
   } catch (error) {
     console.error(`Error getting latest ${metricType} metric:`, error);
@@ -894,6 +1034,157 @@ export const deleteUserMetric = async (metricId) => {
   } catch (error) {
     console.error('Error deleting user metric:', error);
     throw error;
+  }
+};
+
+// Food Database Search function
+export const searchFoodsInDatabase = async (searchTerm, maxResults = 25) => {
+  try {
+    if (!searchTerm.trim()) {
+      return [];
+    }
+
+    console.log(`Searching database for foods matching: "${searchTerm}"`);
+    const mealsRef = collection(db, 'meals');
+    
+    // Convert search term to lowercase for case-insensitive search
+    const queryLower = searchTerm.toLowerCase();
+    
+    // Get all meals (we'll filter in JS since Firestore doesn't support full text search)
+    // In a production app, we'd use Algolia, Firebase Extensions, or similar for better text search
+    const mealsQuery = query(mealsRef, limit(1000)); // Fetch more meals for better search coverage
+    const querySnapshot = await getDocs(mealsQuery);
+    
+    console.log(`Found ${querySnapshot.size} total meals in database`);
+    
+    let results = [];
+    let debugMatches = [];
+    
+    querySnapshot.forEach((doc) => {
+      const meal = { id: doc.id, ...doc.data() };
+      
+      // Special debugging for "Chicken" search
+      if (queryLower === "chicken" && meal.name) {
+        debugMatches.push({
+          id: doc.id,
+          name: meal.name,
+          nameLower: meal.name.toLowerCase(),
+          match: meal.name.toLowerCase().includes(queryLower)
+        });
+      }
+      
+      // Check for matches (full word match, partial word match)
+      let isMatch = false;
+      let matchQuality = 0;  // Higher is better
+      
+      if (meal.name && typeof meal.name === 'string') {
+        const mealNameLower = meal.name.toLowerCase();
+        
+        // Direct substring match (strongest match)
+        if (mealNameLower.includes(queryLower)) {
+          isMatch = true;
+          matchQuality = 3;
+        } 
+        // Word boundary match (check if any word starts with our query)
+        else {
+          const words = mealNameLower.split(/\s+/);
+          for (const word of words) {
+            if (word.startsWith(queryLower)) {
+              isMatch = true;
+              matchQuality = 2;
+              break;
+            }
+          }
+          
+          // Partial word match (weakest match but still valid)
+          if (!isMatch) {
+            for (const word of words) {
+              if (word.includes(queryLower)) {
+                isMatch = true;
+                matchQuality = 1;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (isMatch) {
+          results.push({
+            id: meal.id,
+            description: meal.name,
+            calories: meal.calories,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fat: meal.fat,
+            fiber: meal.fiber,
+            sugar: meal.sugar,
+            sodium: meal.sodium,
+            cholesterol: meal.cholesterol,
+            foodCategory: meal.source || 'Database',
+            source: 'database',
+            matchQuality: matchQuality // Store the match quality for sorting
+          });
+        }
+      }
+    });
+    
+    // Log debug info for "Chicken" search
+    if (queryLower === "chicken") {
+      console.log("Debug info for chicken search:", {
+        totalDocuments: querySnapshot.size,
+        potentialMatches: debugMatches.length,
+        matches: results.length,
+        sampleMatches: debugMatches.slice(0, 5)
+      });
+    }
+    
+    // Sort by relevance using our match quality scores
+    results.sort((a, b) => {
+      // First sort by match quality (higher is better)
+      if (a.matchQuality !== b.matchQuality) {
+        return b.matchQuality - a.matchQuality;
+      }
+      
+      const aName = a.description.toLowerCase();
+      const bName = b.description.toLowerCase();
+      
+      // If same match quality, use the position of the match (earlier is better)
+      if (a.matchQuality >= 2) { // For high quality matches, position matters
+        const aIndex = aName.indexOf(queryLower);
+        const bIndex = bName.indexOf(queryLower);
+        if (aIndex !== bIndex) {
+          return aIndex - bIndex;
+        }
+      }
+      
+      // If everything else is the same, shorter names first
+      if (aName.length !== bName.length) {
+        return aName.length - bName.length;
+      }
+      
+      // Last resort: alphabetical
+      return aName.localeCompare(bName);
+    });
+    
+    // Limit results to requested max
+    results = results.slice(0, maxResults);
+    
+    console.log(`Found ${results.length} matches in database`);
+    
+    // Final debug logging
+    if (results.length > 0) {
+      console.log("Top 3 results:", results.slice(0, 3).map(r => ({
+        name: r.description,
+        matchQuality: r.matchQuality
+      })));
+    } else {
+      console.log(`No results found for query "${searchTerm}" - consider checking the database population`);
+    }
+    
+    return results;
+  } catch (error) {
+    console.error('Error searching foods in database:', error);
+    return [];
   }
 };
 
