@@ -11,8 +11,19 @@ import {
   getLatestUserMetric,
   getUserStreak,
   getUserMetricsByDate,
+  getUserWeightHistory,
 } from '../services/firestoreService';
 import { useSettings } from '../context/settingsContext';
+
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from 'recharts';
 
 function Dashboard() {
   const { currentUser } = useAuth();
@@ -27,6 +38,7 @@ function Dashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [weightHistory, setWeightHistory] = useState([]);
   const navigate = useNavigate();
 
   // For debug purposes
@@ -72,14 +84,14 @@ function Dashboard() {
           console.error('Error fetching sleep metric:', sleepError);
           // Don't let this error stop the entire dashboard
         }
-        
+
         try {
           // Get exercise metrics for today
           const todayStart = new Date();
           todayStart.setHours(0, 0, 0, 0);
           const todayEnd = new Date();
           todayEnd.setHours(23, 59, 59, 999);
-          
+
           // We'll need to add a function to get exercise metrics for today in firestoreService
           const exerciseData = await getUserMetricsByDate(
             currentUser.uid,
@@ -110,6 +122,34 @@ function Dashboard() {
 
     fetchData();
   }, [currentUser, isModalOpen]);
+
+  // Fetch user's all past weight entries
+  useEffect(() => {
+    const fetchWeightHistory = async () => {
+      if (!currentUser) return;
+
+      try {
+        console.log('Fetching weight history...');
+        const history = await getUserWeightHistory(currentUser.uid);
+
+        if (!history || history.length === 0) {
+          console.warn('No weight history data found.');
+          return;
+        }
+
+        setWeightHistory(
+          history.map((entry) => ({
+            date: new Date(entry.date.toDate()).toLocaleDateString(),
+            weight: entry.value,
+          }))
+        );
+      } catch (error) {
+        console.error('Error fetching weight history:', error);
+      }
+    };
+
+    fetchWeightHistory();
+  }, [currentUser]);
 
   // Calculate total calories and macros for today
   const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
@@ -176,10 +216,10 @@ function Dashboard() {
   } catch (error) {
     console.error('Error calculating exercise calories:', error);
   }
-  
+
   // Calculate net calories (consumed - burned)
   const netCalories = Math.max(0, rawTotalCalories - exerciseCaloriesBurned);
-  
+
   // Round the values for display
   const totalCalories = Math.round(rawTotalCalories);
   const totalNetCalories = Math.round(netCalories);
@@ -191,12 +231,12 @@ function Dashboard() {
   // Get calorie goal from settings
   const { userProfile } = useSettings();
   const calorieGoal = userProfile?.targetCalories || 2000;
-  
+
   // Calculate macronutrient goals based on calorie goal
   // Protein: 30% of calories (4 calories per gram)
   // Carbs: 45% of calories (4 calories per gram)
   // Fat: 25% of calories (9 calories per gram)
-  const proteinGoal = Math.round((calorieGoal * 0.30) / 4);
+  const proteinGoal = Math.round((calorieGoal * 0.3) / 4);
   const carbsGoal = Math.round((calorieGoal * 0.45) / 4);
   const fatGoal = Math.round((calorieGoal * 0.25) / 9);
 
@@ -207,7 +247,8 @@ function Dashboard() {
     fatPercentage = 0;
 
   try {
-    caloriePercentage = Math.min(100, (totalNetCalories / calorieGoal) * 100) || 0;
+    caloriePercentage =
+      Math.min(100, (totalNetCalories / calorieGoal) * 100) || 0;
     proteinPercentage = Math.min(100, (totalProtein / proteinGoal) * 100) || 0;
     carbsPercentage = Math.min(100, (totalCarbs / carbsGoal) * 100) || 0;
     fatPercentage = Math.min(100, (totalFat / fatGoal) * 100) || 0;
@@ -236,14 +277,14 @@ function Dashboard() {
         {/* Navigation Buttons */}
         <div className="flex space-x-4 m-1">
           <Link
-            to="/"
+            to="/dashboard"
             className={`border border-black px-3 py-1 rounded-md ${
               darkMode
                 ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
                 : 'bg-white hover:bg-[#DECEFF]'
             } text-sm`}
           >
-            Home
+            Dashboard
           </Link>
           {/*
           <Link
@@ -494,7 +535,7 @@ function Dashboard() {
           </div>
 
           {/* Nutrition Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 w-full max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6 w-full max-w-4xl mx-auto">
             {/* Calories Card */}
             <div
               className={`border border-black rounded-md shadow-md ${
@@ -538,10 +579,14 @@ function Dashboard() {
               </div>
               {totalExerciseCalories > 0 && (
                 <div className="flex justify-between text-xs mb-4">
-                  <span className={darkMode ? "text-gray-300" : "text-gray-600"}>
+                  <span
+                    className={darkMode ? 'text-gray-300' : 'text-gray-600'}
+                  >
                     Consumed: {totalCalories} kcal
                   </span>
-                  <span className={darkMode ? "text-green-400" : "text-green-600"}>
+                  <span
+                    className={darkMode ? 'text-green-400' : 'text-green-600'}
+                  >
                     Exercise: -{totalExerciseCalories} kcal
                   </span>
                 </div>
@@ -564,11 +609,19 @@ function Dashboard() {
                 {totalExerciseCalories > 0 && (
                   <>
                     and burned{' '}
-                    <span className={`font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                    <span
+                      className={`font-semibold ${
+                        darkMode ? 'text-green-400' : 'text-green-600'
+                      }`}
+                    >
                       {totalExerciseCalories} calories
                     </span>{' '}
                     through exercise, for a net of{' '}
-                    <span className={`font-semibold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                    <span
+                      className={`font-semibold ${
+                        darkMode ? 'text-blue-400' : 'text-blue-600'
+                      }`}
+                    >
                       {totalNetCalories} calories
                     </span>
                     ,{' '}
@@ -655,7 +708,11 @@ function Dashboard() {
               <div className="flex justify-around border-t border-gray-300 pt-3">
                 <div className="text-center">
                   <div className="font-medium">Calories</div>
-                  <div className={`${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                  <div
+                    className={`${
+                      darkMode ? 'text-blue-400' : 'text-blue-600'
+                    }`}
+                  >
                     {totalExerciseCalories > 0 ? (
                       <>{totalNetCalories} (net)</>
                     ) : (
@@ -665,24 +722,96 @@ function Dashboard() {
                 </div>
                 <div className="text-center">
                   <div className="font-medium">Protein</div>
-                  <div className={`${darkMode ? 'text-red-400' : 'text-red-600'}`}>{totalProtein}g</div>
+                  <div
+                    className={`${darkMode ? 'text-red-400' : 'text-red-600'}`}
+                  >
+                    {totalProtein}g
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="font-medium">Carbs</div>
-                  <div className={`${darkMode ? 'text-green-400' : 'text-green-600'}`}>{totalCarbs}g</div>
+                  <div
+                    className={`${
+                      darkMode ? 'text-green-400' : 'text-green-600'
+                    }`}
+                  >
+                    {totalCarbs}g
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="font-medium">Fat</div>
-                  <div className={`${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>{totalFat}g</div>
+                  <div
+                    className={`${
+                      darkMode ? 'text-yellow-400' : 'text-yellow-600'
+                    }`}
+                  >
+                    {totalFat}g
+                  </div>
                 </div>
               </div>
+            </div>
+
+            {/* Weight History Chart Card */}
+            <div
+              className={`border border-black rounded-md shadow-md p-6 ${
+                darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
+              }`}
+            >
+              <h3
+                className={`text-xl font-semibold mb-3 text-center border-b pb-2 ${
+                  darkMode ? 'border-slate-600' : 'border-gray-300'
+                }`}
+              >
+                Weight Progress
+              </h3>
+              {weightHistory.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={weightHistory}>
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(tick) =>
+                        new Date(tick).toLocaleDateString('en-US', {
+                          month: 'numeric',
+                          day: 'numeric',
+                        })
+                      }
+                    />
+                    <YAxis
+                      domain={['dataMin - 5', 'dataMax + 5']} // Dynamically adjust based on min/max weight
+                      tickCount={5} // Adjusts the number of ticks
+                      label={{
+                        value: 'Weight (lbs)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        style: { textAnchor: 'middle', fontSize: 12 },
+                      }}
+                    />
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="weight"
+                      stroke="#8884d8"
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p
+                  className={`text-center text-gray-600 ${
+                    darkMode ? 'border-slate-600' : 'border-gray-300'
+                  } `}
+                >
+                  No weight data available
+                </p>
+              )}
             </div>
 
             {/* Recent Meals Section */}
             <div
               className={`w-full max-w-2xl mx-auto mt-6 p-4 border border-black rounded-md ${
                 darkMode ? 'bg-slate-800' : 'bg-[#efffce]'
-              } md:col-span-2`}
+              } md:col-span-3`}
             >
               <div
                 className={`flex justify-between items-center mb-3 border-b ${
@@ -737,7 +866,8 @@ function Dashboard() {
                                   : 'bg-blue-100 text-blue-600'
                               } px-2 py-1 rounded-full font-medium`}
                             >
-                              {Math.round(meal.calories || 0)} kcal ({meal.amount || 100}g)
+                              {Math.round(meal.calories || 0)} kcal (
+                              {meal.amount || 100}g)
                             </span>
                           </div>
                           <div className="flex justify-around items-center mt-3 relative">
@@ -820,7 +950,9 @@ function Dashboard() {
                   )}
                 </div>
               ) : (
-                <p className={`${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                <p
+                  className={`${darkMode ? 'text-slate-400' : 'text-gray-600'}`}
+                >
                   No meals logged today. Start tracking your nutrition!
                 </p>
               )}

@@ -83,6 +83,7 @@ function NavBar() {
               </svg>
               Dashboard
             </Link>
+            {/*
             <Link
               to="/meal-history"
               className={`px-3 py-1.5 rounded-lg shadow-md transition-all duration-200 ${
@@ -104,6 +105,7 @@ function NavBar() {
               </svg>
               Meal History
             </Link>
+            */}
 
             {currentUser.photoURL ? (
               <div className="relative">
@@ -260,7 +262,7 @@ function NavBar() {
             >
               About Us
             </Link>
-            */}
+  
             <Link
               to="/dashboard"
               className={`py-2 px-3 rounded-lg ${
@@ -291,8 +293,10 @@ function NavBar() {
             >
               Settings
             </Link>
-
+            */}
+            {/*
             <div className="border-t border-dashed my-2 opacity-40"></div>
+            */}
 
             {currentUser ? (
               <div className="flex flex-col space-y-3">
@@ -351,7 +355,7 @@ function NavBar() {
                   </svg>
                   Dashboard
                 </Link>
-
+                {/*}
                 <Link
                   to="/meal-history"
                   className={`flex items-center py-2 px-3 rounded-lg ${
@@ -376,6 +380,7 @@ function NavBar() {
                   </svg>
                   Meal History
                 </Link>
+                */}
               </div>
             ) : (
               <div>

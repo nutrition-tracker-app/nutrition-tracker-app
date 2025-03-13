@@ -272,14 +272,14 @@ function MealHistory() {
         {/* Navigation Buttons */}
         <div className="flex space-x-4 m-1">
           <Link
-            to="/"
+            to="/dashboard"
             className={`border border-black px-3 py-1 rounded-md ${
               darkMode
                 ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
                 : 'bg-white hover:bg-[#DECEFF]'
             } text-sm`}
           >
-            Home
+            Dashboard
           </Link>
           {/*
                 <Link

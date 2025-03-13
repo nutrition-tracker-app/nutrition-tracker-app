@@ -13,10 +13,15 @@ import {
   trackWeight,
   trackSleep,
   trackExercise,
-  deleteUserMetric
+  deleteUserMetric,
 } from '../services/firestoreService';
+import QuickAddMealModal from '../components/quickAddModal';
+import { Link } from 'react-router-dom';
 
 function Diary() {
+  // For "navbar3"
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const { currentUser } = useAuth();
   const { darkMode, editMode } = useSettings();
   const navigate = useNavigate();
@@ -82,21 +87,25 @@ function Diary() {
   useEffect(() => {
     const fetchDiaryData = async () => {
       if (!currentUser) return;
-      
+
       // Log the selected date when the effect runs
       console.log(`Fetching diary data for date: ${selectedDate}`);
 
       try {
         setIsLoading(true);
         setError('');
-        
+
         // Debug info about the selected date
         const dateParts = selectedDate.split('-').map(Number);
         console.log('Selected date components:', {
           year: dateParts[0],
           month: dateParts[1],
           day: dateParts[2],
-          dateObj: new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).toString()
+          dateObj: new Date(
+            dateParts[0],
+            dateParts[1] - 1,
+            dateParts[2]
+          ).toString(),
         });
 
         // Fetch meals for selected date
@@ -115,18 +124,18 @@ function Diary() {
           const year = parts[0];
           const month = parts[1] - 1; // JS months are 0-indexed
           const day = parts[2];
-          
+
           // Create date objects with explicit components to avoid timezone issues
           const selectedDateStart = new Date(year, month, day, 0, 0, 0, 0);
           const selectedDateEnd = new Date(year, month, day, 23, 59, 59, 999);
-          
+
           console.log('Date range for metrics:', {
             selectedDateString: selectedDate,
             dateComponents: { year, month: month + 1, day }, // Convert month back to 1-indexed for display
             start: selectedDateStart.toString(),
             startISO: selectedDateStart.toISOString(),
             end: selectedDateEnd.toString(),
-            endISO: selectedDateEnd.toISOString()
+            endISO: selectedDateEnd.toISOString(),
           });
 
           return userMetrics.filter((metric) => {
@@ -143,7 +152,7 @@ function Diary() {
               } else {
                 tempDate = new Date(metric.date);
               }
-              
+
               // Normalize time to avoid timezone issues by creating a new Date with components
               metricDate = new Date(
                 tempDate.getFullYear(),
@@ -153,18 +162,18 @@ function Diary() {
                 tempDate.getMinutes(),
                 tempDate.getSeconds()
               );
-              
+
               // Extract YMD components for display
               const metricYear = metricDate.getFullYear();
               const metricMonth = metricDate.getMonth();
               const metricDay = metricDate.getDate();
-              
+
               // Check if the date falls within the selected day (by checking year, month and day)
-              const dateMatch = 
+              const dateMatch =
                 metricYear === selectedDateStart.getFullYear() &&
                 metricMonth === selectedDateStart.getMonth() &&
                 metricDay === selectedDateStart.getDate();
-              
+
               // Log the metric date for debugging
               console.log('Metric date check:', {
                 originalDate: tempDate.toString(),
@@ -173,16 +182,16 @@ function Diary() {
                 components: {
                   year: metricYear,
                   month: metricMonth + 1, // Convert to 1-indexed for display
-                  day: metricDay
+                  day: metricDay,
                 },
                 dateMatch,
                 selectedDateComponents: {
                   year: selectedDateStart.getFullYear(),
                   month: selectedDateStart.getMonth() + 1, // Convert to 1-indexed for display
-                  day: selectedDateStart.getDate()
-                }
+                  day: selectedDateStart.getDate(),
+                },
               });
-              
+
               // Return true if the date components match our selected date
               return dateMatch;
             } catch (error) {
@@ -219,7 +228,7 @@ function Diary() {
       return total + (Number(exercise.details?.calories) || 0);
     }, 0);
   };
-  
+
   // Calculate totals from meals and subtract exercise calories
   const calculateTotals = () => {
     // Calculate calories consumed from meals
@@ -250,31 +259,31 @@ function Diary() {
 
     // Calculate exercise calories
     const exerciseCalories = calculateExerciseCalories();
-    
+
     // Add exercise calories to the totals object
     mealTotals.exerciseCalories = exerciseCalories;
-    
+
     // Calculate net calories (consumed - burned)
     mealTotals.netCalories = mealTotals.calories - exerciseCalories;
-    
+
     console.log('Calculated meal totals:', mealTotals);
     console.log('Exercise calories burned:', exerciseCalories);
     console.log('Net calories:', mealTotals.netCalories);
-    
+
     return mealTotals;
   };
-  
+
   // Calculate all nutrients from all meals
   const calculateAllNutrients = () => {
     // Create a map to aggregate nutrients by ID
     const nutrientMap = new Map();
-    
+
     // Process each meal's nutrients
-    meals.forEach(meal => {
+    meals.forEach((meal) => {
       if (meal.allNutrients && Array.isArray(meal.allNutrients)) {
-        meal.allNutrients.forEach(nutrient => {
+        meal.allNutrients.forEach((nutrient) => {
           if (!nutrient.id || !nutrient.name) return;
-          
+
           const key = nutrient.id;
           if (nutrientMap.has(key)) {
             // Add to existing nutrient
@@ -286,13 +295,13 @@ function Diary() {
               id: nutrient.id,
               name: nutrient.name,
               value: Number(nutrient.value) || 0,
-              unit: nutrient.unit || ''
+              unit: nutrient.unit || '',
             });
           }
         });
       }
     });
-    
+
     // Convert map to array
     return Array.from(nutrientMap.values());
   };
@@ -326,9 +335,9 @@ function Diary() {
     // Log the current state before navigation
     console.log('Before navigation:', {
       selectedDate,
-      direction
+      direction,
     });
-    
+
     try {
       // Create a new date object using the date constructor with explicit values
       // to avoid timezone issues
@@ -336,55 +345,56 @@ function Diary() {
       const year = parts[0];
       const month = parts[1] - 1; // JS months are 0-indexed
       const day = parts[2];
-      
+
       // Create date at noon to avoid any DST issues
       const currentDate = new Date(year, month, day, 12, 0, 0, 0);
-      
+
       // Log the created date
       console.log('Current date object:', currentDate.toString());
-      
+
       // Calculate the new date
       const newDate = new Date(year, month, day + direction, 12, 0, 0, 0);
-      
+
       // Format the new date as YYYY-MM-DD
       const newDateString = newDate.toISOString().split('T')[0];
-      
+
       // Log the new date
       console.log('New date:', {
         newDateObj: newDate.toString(),
-        newDateString
+        newDateString,
       });
-      
+
       // Update state with the new date
       setSelectedDate(newDateString);
     } catch (error) {
       console.error('Error navigating to new date:', error);
-      
+
       // Fallback method if the above fails
       const currentDate = new Date(selectedDate + 'T12:00:00');
       currentDate.setDate(currentDate.getDate() + direction);
       const fallbackDate = currentDate.toISOString().split('T')[0];
-      
+
       console.log('Using fallback date:', fallbackDate);
       setSelectedDate(fallbackDate);
     }
   };
-  
+
   // Handle delete metric
   const handleDeleteMetric = async (metricId, metricType) => {
     if (!window.confirm('Are you sure you want to delete this record?')) {
       return;
     }
-    
+
     try {
       await deleteUserMetric(metricId);
-      
+
       // Update the UI by removing the deleted metric
-      setMetrics(prev => ({
+      setMetrics((prev) => ({
         ...prev,
-        [metricType]: prev[metricType].filter(metric => metric.id !== metricId)
+        [metricType]: prev[metricType].filter(
+          (metric) => metric.id !== metricId
+        ),
       }));
-      
     } catch (error) {
       console.error(`Error deleting ${metricType}:`, error);
       setError(`Failed to delete ${metricType}. Please try again.`);
@@ -589,30 +599,71 @@ function Diary() {
   const categorizeNutrients = (nutrients) => {
     // Group nutrients by type for better organization
     const nutrientGroups = {
-      "Macronutrients": ["Protein", "Total lipid (fat)", "Carbohydrate", "Fiber", "Sugars"],
-      "Vitamins": ["Vitamin A", "Vitamin C", "Vitamin D", "Vitamin E", "Vitamin K", 
-                  "Vitamin B-6", "Vitamin B-12", "Thiamin", "Riboflavin", "Niacin", 
-                  "Folate", "Choline", "Retinol", "Carotene"],
-      "Minerals": ["Calcium", "Iron", "Magnesium", "Phosphorus", "Potassium", 
-                  "Sodium", "Zinc", "Copper", "Selenium", "Manganese"],
-      "Fatty Acids": ["saturated", "monounsaturated", "polyunsaturated", "SFA", "MUFA", "PUFA", "DHA", "EPA"],
-      "Other": [] // For nutrients that don't fit in other categories
+      Macronutrients: [
+        'Protein',
+        'Total lipid (fat)',
+        'Carbohydrate',
+        'Fiber',
+        'Sugars',
+      ],
+      Vitamins: [
+        'Vitamin A',
+        'Vitamin C',
+        'Vitamin D',
+        'Vitamin E',
+        'Vitamin K',
+        'Vitamin B-6',
+        'Vitamin B-12',
+        'Thiamin',
+        'Riboflavin',
+        'Niacin',
+        'Folate',
+        'Choline',
+        'Retinol',
+        'Carotene',
+      ],
+      Minerals: [
+        'Calcium',
+        'Iron',
+        'Magnesium',
+        'Phosphorus',
+        'Potassium',
+        'Sodium',
+        'Zinc',
+        'Copper',
+        'Selenium',
+        'Manganese',
+      ],
+      'Fatty Acids': [
+        'saturated',
+        'monounsaturated',
+        'polyunsaturated',
+        'SFA',
+        'MUFA',
+        'PUFA',
+        'DHA',
+        'EPA',
+      ],
+      Other: [], // For nutrients that don't fit in other categories
     };
-    
+
     // Sort nutrients into groups
     const categorizedNutrients = {};
-    Object.keys(nutrientGroups).forEach(group => {
+    Object.keys(nutrientGroups).forEach((group) => {
       categorizedNutrients[group] = [];
     });
-    
+
     // Categorize each nutrient
     if (nutrients && Array.isArray(nutrients)) {
-      nutrients.forEach(nutrient => {
+      nutrients.forEach((nutrient) => {
         let assigned = false;
         // Check if nutrient name contains any of the keywords for groups
         for (const [group, keywords] of Object.entries(nutrientGroups)) {
-          if (keywords.some(keyword => 
-            nutrient.name.toLowerCase().includes(keyword.toLowerCase()))) {
+          if (
+            keywords.some((keyword) =>
+              nutrient.name.toLowerCase().includes(keyword.toLowerCase())
+            )
+          ) {
             categorizedNutrients[group].push(nutrient);
             assigned = true;
             break;
@@ -620,70 +671,93 @@ function Diary() {
         }
         // If not assigned to a specific group, put in "Other"
         if (!assigned) {
-          categorizedNutrients["Other"].push(nutrient);
+          categorizedNutrients['Other'].push(nutrient);
         }
       });
     }
-    
+
     return categorizedNutrients;
   };
-  
-  // Component to display categorized nutrients 
+
+  // Component to display categorized nutrients
   const CategorizedNutrientsList = ({ nutrients, darkMode }) => {
     const categorizedNutrients = categorizeNutrients(nutrients);
-    
+
     return (
       <div className="space-y-4">
-        {Object.entries(categorizedNutrients).map(([group, groupNutrients]) => (
-          groupNutrients.length > 0 && (
-            <div key={group} className="mb-4">
-              <h3 className={`font-semibold text-lg mb-2 ${darkMode ? 'text-green-300' : 'text-green-600'}`}>
-                {group}
-              </h3>
-              <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${darkMode ? 'text-gray-200' : 'text-gray-600'}`}>
-                {groupNutrients.map((nutrient, index) => (
-                  <div key={index} className={`flex justify-between p-2 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                    <span className="font-medium">{nutrient.name}</span>
-                    <span className="font-semibold">
-                      {parseFloat(nutrient.value).toFixed(2)} {nutrient.unit}
-                    </span>
-                  </div>
-                ))}
+        {Object.entries(categorizedNutrients).map(
+          ([group, groupNutrients]) =>
+            groupNutrients.length > 0 && (
+              <div key={group} className="mb-4">
+                <h3
+                  className={`font-semibold text-lg mb-2 ${
+                    darkMode ? 'text-green-300' : 'text-green-600'
+                  }`}
+                >
+                  {group}
+                </h3>
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${
+                    darkMode ? 'text-gray-200' : 'text-gray-600'
+                  }`}
+                >
+                  {groupNutrients.map((nutrient, index) => (
+                    <div
+                      key={index}
+                      className={`flex justify-between p-2 rounded ${
+                        darkMode ? 'bg-gray-700' : 'bg-gray-100'
+                      }`}
+                    >
+                      <span className="font-medium">{nutrient.name}</span>
+                      <span className="font-semibold">
+                        {parseFloat(nutrient.value).toFixed(2)} {nutrient.unit}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )
-        ))}
+            )
+        )}
       </div>
     );
   };
-  
+
   // Detailed Nutrients Modal Component
   const DetailedNutrientsModal = ({ isOpen, onClose, nutrients, darkMode }) => {
     if (!isOpen) return null;
-    
+
     return (
       <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm bg-black/30">
-        <div 
-          className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} 
+        <div
+          className={`${
+            darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+          } 
           rounded-lg p-6 max-w-[90vw] md:max-w-[600px] max-h-[80vh] overflow-y-auto shadow-lg border ${
             darkMode ? 'border-gray-700' : 'border-gray-200'
           }`}
         >
           <div className="flex justify-between items-center mb-4 border-b pb-2">
             <h2 className="text-xl font-bold">Detailed Nutrient Information</h2>
-            <button 
+            <button
               onClick={onClose}
-              className={`rounded-full ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'} p-1.5`}
+              className={`rounded-full ${
+                darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+              } p-1.5`}
             >
               ✕
             </button>
           </div>
-          
+
           {nutrients && nutrients.length > 0 ? (
-            <CategorizedNutrientsList nutrients={nutrients} darkMode={darkMode} />
+            <CategorizedNutrientsList
+              nutrients={nutrients}
+              darkMode={darkMode}
+            />
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-500">No detailed nutrient information available.</p>
+              <p className="text-gray-500">
+                No detailed nutrient information available.
+              </p>
             </div>
           )}
         </div>
@@ -695,16 +769,16 @@ function Diary() {
   const AllNutrientsDropdown = ({ darkMode, meals }) => {
     const [showAllNutrients, setShowAllNutrients] = useState(false);
     const aggregatedNutrients = calculateAllNutrients();
-    
+
     const hasNutrients = aggregatedNutrients && aggregatedNutrients.length > 0;
-    
+
     return (
       <div className="mt-2 border-t pt-4">
         <button
           onClick={() => setShowAllNutrients(!showAllNutrients)}
           className={`flex items-center justify-between w-full py-2 px-4 rounded-md transition-colors ${
-            darkMode 
-              ? 'bg-slate-700 hover:bg-slate-600 text-white' 
+            darkMode
+              ? 'bg-slate-700 hover:bg-slate-600 text-white'
               : 'bg-green-100 hover:bg-green-200 text-green-800'
           }`}
         >
@@ -715,18 +789,30 @@ function Diary() {
             {showAllNutrients ? '▲' : '▼'}
           </span>
         </button>
-        
+
         {showAllNutrients && (
-          <div className={`mt-4 p-4 rounded-md ${darkMode ? 'bg-slate-700' : 'bg-green-50'}`}>
+          <div
+            className={`mt-4 p-4 rounded-md ${
+              darkMode ? 'bg-slate-700' : 'bg-green-50'
+            }`}
+          >
             {hasNutrients ? (
-              <CategorizedNutrientsList nutrients={aggregatedNutrients} darkMode={darkMode} />
+              <CategorizedNutrientsList
+                nutrients={aggregatedNutrients}
+                darkMode={darkMode}
+              />
             ) : (
               <div className="text-center py-4">
                 <p className={darkMode ? 'text-slate-400' : 'text-gray-500'}>
                   No detailed nutrient information available for today's meals.
                 </p>
-                <p className={`mt-2 text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  Add meals with detailed nutrition data to see aggregated nutrients.
+                <p
+                  className={`mt-2 text-sm ${
+                    darkMode ? 'text-slate-400' : 'text-gray-500'
+                  }`}
+                >
+                  Add meals with detailed nutrition data to see aggregated
+                  nutrients.
                 </p>
               </div>
             )}
@@ -735,20 +821,22 @@ function Diary() {
       </div>
     );
   };
-  
+
   // Component to display meal macronutrients with extra nutrients
   const MealNutrients = ({ meal, darkMode }) => {
     const [showDetailedNutrients, setShowDetailedNutrients] = useState(false);
-    
+
     // Debug: log whether this meal has detailed nutrient info
     useEffect(() => {
       if (meal && meal.allNutrients) {
-        console.log(`MealNutrients: ${meal.name} has ${meal.allNutrients.length} detailed nutrients`);
+        console.log(
+          `MealNutrients: ${meal.name} has ${meal.allNutrients.length} detailed nutrients`
+        );
       } else {
         console.log(`MealNutrients: ${meal.name} has no detailed nutrients`);
       }
     }, [meal]);
-    
+
     return (
       <>
         <div className="flex items-center justify-around text-xs flex-wrap gap-1 mt-2">
@@ -810,20 +898,22 @@ function Diary() {
               Na: {meal.sodium || 0}mg
             </div>
           )}
-          
+
           {meal.allNutrients && meal.allNutrients.length > 0 && (
             <button
               onClick={() => setShowDetailedNutrients(true)}
               className={`px-2 py-0.5 rounded-full ${
-                darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'
+                darkMode
+                  ? 'bg-blue-900 text-blue-200'
+                  : 'bg-blue-100 text-blue-800'
               } ml-1`}
             >
               All Nutrients
             </button>
           )}
         </div>
-        
-        <DetailedNutrientsModal 
+
+        <DetailedNutrientsModal
           isOpen={showDetailedNutrients}
           onClose={() => setShowDetailedNutrients(false)}
           nutrients={meal.allNutrients}
@@ -841,7 +931,65 @@ function Diary() {
     >
       <NavBar2 />
 
+      <div
+        className={`border-b border-black flex flex-col items-start py-2 px-6 ${
+          darkMode ? 'bg-slate-700' : 'bg-gray-200'
+        }`}
+      >
+        {/* Navigation Buttons */}
+        <div className="flex space-x-4 m-1">
+          <Link
+            to="/dashboard"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Dashboard
+          </Link>
+          {/*
+          <Link
+            to="/log-meal"
+            className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
+          >
+            Log Meal
+          </Link>
+          */}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Log Meal
+          </button>
+          <Link
+            to="/diary"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Diary
+          </Link>
+          <Link
+            to="/meal-history"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Meal History
+          </Link>
+        </div>
+      </div>
       {/* Page Content */}
+      {/*}
       <div
         className={`border-b border-black flex flex-col items-start py-2 px-6 ${
           darkMode ? 'bg-slate-700' : 'bg-gray-200'
@@ -849,6 +997,7 @@ function Diary() {
       >
         <h1 className="text-xl font-bold">Diary</h1>
       </div>
+      */}
 
       {/* Date Navigation */}
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -915,7 +1064,8 @@ function Diary() {
               <div className="flex justify-between mb-1">
                 <span className="font-medium">Calories (Net)</span>
                 <span>
-                  {Math.round(totals.netCalories)} / {nutritionGoals.calories} kcal
+                  {Math.round(totals.netCalories)} / {nutritionGoals.calories}{' '}
+                  kcal
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-4">
@@ -930,11 +1080,13 @@ function Diary() {
                 ></div>
               </div>
               <div className="flex justify-between text-xs mt-1">
-                <span className={darkMode ? "text-gray-300" : "text-gray-600"}>
+                <span className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
                   Consumed: {Math.round(totals.calories)} kcal
                 </span>
                 {totals.exerciseCalories > 0 && (
-                  <span className={darkMode ? "text-green-400" : "text-green-600"}>
+                  <span
+                    className={darkMode ? 'text-green-400' : 'text-green-600'}
+                  >
                     Exercise: -{Math.round(totals.exerciseCalories)} kcal
                   </span>
                 )}
@@ -1066,7 +1218,7 @@ function Diary() {
                 ></div>
               </div>
             </div>
-            
+
             {/* Show All Nutrients Section */}
             <AllNutrientsDropdown darkMode={darkMode} meals={meals} />
           </div>
@@ -1126,7 +1278,9 @@ function Diary() {
                           </span>
                           {editMode && (
                             <button
-                              onClick={() => handleDeleteMetric(metric.id, 'weight')}
+                              onClick={() =>
+                                handleDeleteMetric(metric.id, 'weight')
+                              }
                               className="text-red-500 hover:text-red-700 p-1"
                               title="Delete weight record"
                             >
@@ -1215,7 +1369,9 @@ function Diary() {
                           </div>
                           {editMode && (
                             <button
-                              onClick={() => handleDeleteMetric(metric.id, 'sleep')}
+                              onClick={() =>
+                                handleDeleteMetric(metric.id, 'sleep')
+                              }
                               className="text-red-500 hover:text-red-700 p-1"
                               title="Delete sleep record"
                             >
@@ -1289,7 +1445,9 @@ function Diary() {
                           )}
                           {editMode && (
                             <button
-                              onClick={() => handleDeleteMetric(metric.id, 'exercise')}
+                              onClick={() =>
+                                handleDeleteMetric(metric.id, 'exercise')
+                              }
                               className="text-red-500 hover:text-red-700 p-1 ml-2"
                               title="Delete exercise record"
                             >
@@ -1839,6 +1997,17 @@ function Diary() {
           </div>
         </div>
       )}
+
+      {/* Quick Add Meal Modal */}
+      <QuickAddMealModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          // Use our shared function to refresh meals
+          fetchAndProcessMeals();
+        }}
+        userId={currentUser?.uid}
+      />
 
       <Footer />
     </div>
