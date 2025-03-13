@@ -41,9 +41,6 @@ function Dashboard() {
   const [weightHistory, setWeightHistory] = useState([]);
   const navigate = useNavigate();
 
-  // For debug purposes
-  console.log('Dashboard rendering, currentUser:', currentUser?.uid);
-
   // Protect the dashboard route
   useEffect(() => {
     if (!currentUser) {
@@ -290,14 +287,6 @@ function Dashboard() {
           >
             Dashboard
           </Link>
-          {/*
-          <Link
-            to="/log-meal"
-            className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
-          >
-            Log Meal
-          </Link>
-          */}
           <button
             onClick={() => setIsModalOpen(true)}
             className={`border border-black px-3 py-1 rounded-md ${
@@ -478,18 +467,22 @@ function Dashboard() {
                 } pb-2`}
               >
                 Sleep
-                {latestSleep && latestSleep.date && new Date().toDateString() !== 
-                  new Date(
-                    typeof latestSleep.date.toDate === 'function'
-                      ? latestSleep.date.toDate()
-                      : latestSleep.date
-                  ).toDateString() && (
-                  <span className={`text-xs block ${
-                    darkMode ? 'text-yellow-300' : 'text-yellow-600'
-                  }`}>
-                    (Last recorded)
-                  </span>
-                )}
+                {latestSleep &&
+                  latestSleep.date &&
+                  new Date().toDateString() !==
+                    new Date(
+                      typeof latestSleep.date.toDate === 'function'
+                        ? latestSleep.date.toDate()
+                        : latestSleep.date
+                    ).toDateString() && (
+                    <span
+                      className={`text-xs block ${
+                        darkMode ? 'text-yellow-300' : 'text-yellow-600'
+                      }`}
+                    >
+                      (Last recorded)
+                    </span>
+                  )}
               </h3>
               {latestSleep ? (
                 <div className="flex flex-col items-center">
