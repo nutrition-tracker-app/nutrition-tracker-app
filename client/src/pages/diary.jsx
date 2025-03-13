@@ -114,14 +114,20 @@ function Diary() {
           dateParts[1] - 1,
           dateParts[2]
         );
-        console.log('Created date object for meals query:', selectedDateObj.toString());
+        console.log(
+          'Created date object for meals query:',
+          selectedDateObj.toString()
+        );
 
         // Fetch meals for selected date
         const userMeals = await getUserMealsByDate(
           currentUser.uid,
           selectedDateObj
         );
-        console.log(`Found ${userMeals.length} meals for ${selectedDate}`, userMeals);
+        console.log(
+          `Found ${userMeals.length} meals for ${selectedDate}`,
+          userMeals
+        );
         setMeals(userMeals);
 
         // Fetch metrics for selected date
@@ -1029,7 +1035,7 @@ function Diary() {
           onChange={handleDateChange}
           className={`px-3 py-1 rounded-md border ${
             darkMode
-              ? 'bg-slate-700 border-slate-600 text-white'
+              ? 'bg-slate-700 border-slate-600 text-white [color-scheme:dark]'
               : 'bg-white border-gray-300'
           }`}
         />
@@ -2015,30 +2021,35 @@ function Diary() {
           // Force a re-fetch of diary data after meal is added
           const fetchDiaryDataAfterAdd = async () => {
             if (!currentUser) return;
-            console.log('Refreshing meals after adding a new meal for date:', selectedDate);
-            
+            console.log(
+              'Refreshing meals after adding a new meal for date:',
+              selectedDate
+            );
+
             try {
               // Convert selected date string to a date object
               const dateParts = selectedDate.split('-').map(Number);
               const selectedDateObj = new Date(
                 dateParts[0],
-                dateParts[1] - 1, 
+                dateParts[1] - 1,
                 dateParts[2]
               );
-              
+
               // Fetch updated meals for the selected date
               const updatedMeals = await getUserMealsByDate(
                 currentUser.uid,
                 selectedDateObj
               );
-              
-              console.log(`Fetched ${updatedMeals.length} meals after modal closed`);
+
+              console.log(
+                `Fetched ${updatedMeals.length} meals after modal closed`
+              );
               setMeals(updatedMeals);
             } catch (error) {
               console.error('Error refreshing meals after add:', error);
             }
           };
-          
+
           // Call the function to refresh meals
           fetchDiaryDataAfterAdd();
         }}
