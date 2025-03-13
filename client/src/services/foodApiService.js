@@ -89,9 +89,11 @@ export const getFoodDetails = async (fdcId) => {
     // Cache the result in Firestore for future use
     try {
       await cacheFoodData(fdcId, foodData);
+      console.log(`Successfully cached food data for ID: ${fdcId}`);
     } catch (cacheError) {
       console.error('Error caching food data:', cacheError);
-      // Continue without caching
+      console.log('Continuing without caching - this will not affect functionality');
+      // Continue without caching - the app will still work fine
     }
     
     return foodData;

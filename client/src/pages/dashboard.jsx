@@ -64,9 +64,11 @@ function Dashboard() {
         setMeals(userMeals);
 
         try {
+          // For weight, we want the most recent entry regardless of date
           const weightMetric = await getLatestUserMetric(
             currentUser.uid,
-            'weight'
+            'weight',
+            false // Get latest weight, not just today's
           );
           setLatestWeight(weightMetric);
         } catch (weightError) {
@@ -75,9 +77,11 @@ function Dashboard() {
         }
 
         try {
+          // Get sleep metrics for today only, not from past days
           const sleepMetric = await getLatestUserMetric(
             currentUser.uid,
-            'sleep'
+            'sleep',
+            true // Only get sleep for today
           );
           setLatestSleep(sleepMetric);
         } catch (sleepError) {
@@ -474,6 +478,18 @@ function Dashboard() {
                 } pb-2`}
               >
                 Sleep
+                {latestSleep && latestSleep.date && new Date().toDateString() !== 
+                  new Date(
+                    typeof latestSleep.date.toDate === 'function'
+                      ? latestSleep.date.toDate()
+                      : latestSleep.date
+                  ).toDateString() && (
+                  <span className={`text-xs block ${
+                    darkMode ? 'text-yellow-300' : 'text-yellow-600'
+                  }`}>
+                    (Last recorded)
+                  </span>
+                )}
               </h3>
               {latestSleep ? (
                 <div className="flex flex-col items-center">
@@ -499,6 +515,19 @@ function Dashboard() {
                       : 0}
                     /10
                   </div>
+                  {latestSleep && latestSleep.date && (
+                    <div
+                      className={`text-xs ${
+                        darkMode ? 'text-slate-400' : 'text-gray-500'
+                      } mt-1`}
+                    >
+                      {new Date(
+                        typeof latestSleep.date.toDate === 'function'
+                          ? latestSleep.date.toDate()
+                          : latestSleep.date
+                      ).toLocaleDateString()}
+                    </div>
+                  )}
                   <Link
                     to="/diary"
                     className={`mt-3 text-sm px-3 py-1 rounded-full ${

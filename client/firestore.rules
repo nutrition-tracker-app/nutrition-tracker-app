@@ -36,9 +36,9 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Allow reading cached food data by anyone who is authenticated
+    // Allow reading and creating cached food data by anyone who is authenticated
     match /cachedFoods/{foodId} {
-      allow read: if request.auth != null;
+      allow read, create: if request.auth != null;
     }
   }
 }
