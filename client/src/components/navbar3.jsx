@@ -319,15 +319,6 @@ function NavBar3() {
             } font-medium ml-auto`}
           >
             <Link
-              to="/about"
-              className={`nav-link-hover ${
-                darkMode ? 'hover:text-green-300' : 'hover:text-green-600'
-              } transition-colors duration-200 py-1 flex items-center`}
-            >
-              About Us
-            </Link>
-
-            <Link
               to="/dashboard"
               className={`nav-link-hover ${
                 darkMode ? 'hover:text-green-300' : 'hover:text-green-600'
