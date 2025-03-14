@@ -34,7 +34,7 @@ function Footer() {
 
       {/* Footer Content */}
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-        <div className="flex flex-wrap gap-5 md:gap-8 mb-4 md:mb-0">
+        <div className="flex flex-wrap gap-5 md:gap-6 mb-4 md:mb-0">
           {/* Contact */}
           <a
             href="/about"

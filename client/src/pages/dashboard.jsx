@@ -317,6 +317,16 @@ function Dashboard() {
           >
             Meal History
           </Link>
+          <Link
+            to="/charts"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Charts
+          </Link>
         </div>
       </div>
 
@@ -813,7 +823,7 @@ function Dashboard() {
                     <Line
                       type="monotone"
                       dataKey="weight"
-                      stroke="#8884d8"
+                      stroke="#3182ce"
                       strokeWidth={2}
                     />
                   </LineChart>

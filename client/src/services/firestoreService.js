@@ -105,7 +105,7 @@ export const createMeal = async (mealData) => {
     console.log('Meal data:', mealData);
 
     const mealsRef = collection(db, 'meals');
-    
+
     // Process the meal data with consistent precision
     const mealToAdd = {
       name: mealData.name,
@@ -139,23 +139,26 @@ export const createMeal = async (mealData) => {
 
     // Check for duplicates before adding
     let existingMealId = null;
-    
+
     // First check by fdcId in sourceDetails if available (for API foods)
     if (mealToAdd.sourceDetails && mealToAdd.sourceDetails.fdcId) {
       const fdcIdQuery = query(
-        mealsRef, 
+        mealsRef,
         where('sourceDetails.fdcId', '==', mealToAdd.sourceDetails.fdcId),
         limit(1)
       );
       const fdcIdSnapshot = await getDocs(fdcIdQuery);
-      
+
       if (!fdcIdSnapshot.empty) {
         const doc = fdcIdSnapshot.docs[0];
-        console.log(`Found existing meal with fdcId ${mealToAdd.sourceDetails.fdcId}:`, doc.id);
+        console.log(
+          `Found existing meal with fdcId ${mealToAdd.sourceDetails.fdcId}:`,
+          doc.id
+        );
         existingMealId = doc.id;
       }
     }
-    
+
     // If not found by fdcId, check by exact name match
     if (!existingMealId && mealToAdd.name) {
       const nameQuery = query(
@@ -164,14 +167,17 @@ export const createMeal = async (mealData) => {
         limit(1)
       );
       const nameSnapshot = await getDocs(nameQuery);
-      
+
       if (!nameSnapshot.empty) {
         const doc = nameSnapshot.docs[0];
-        console.log(`Found existing meal with name "${mealToAdd.name}":`, doc.id);
+        console.log(
+          `Found existing meal with name "${mealToAdd.name}":`,
+          doc.id
+        );
         existingMealId = doc.id;
       }
     }
-    
+
     // If an existing meal was found, return its ID instead of creating a new one
     if (existingMealId) {
       console.log('Using existing meal definition:', existingMealId);
@@ -384,16 +390,16 @@ export const addMeal = async (userId, mealData) => {
 
     // Create a custom user meal entry
     const userMealsRef = collection(db, 'userMeals');
-    
+
     // Get meal to calculate multiplier
     const meal = await getMeal(mealId);
     if (!meal) {
       throw new Error('Meal not found');
     }
-    
+
     const baseAmount = meal.baseAmount || 100;
     const multiplier = (mealData.amount || 100) / baseAmount;
-    
+
     const userMealEntry = {
       userId,
       mealId,
@@ -403,13 +409,13 @@ export const addMeal = async (userId, mealData) => {
       multiplier,
       createdAt: serverTimestamp(),
     };
-    
+
     console.log('Adding entry to diary with custom date:', userMealEntry);
     const docRef = await addDoc(userMealsRef, userMealEntry);
-    
+
     // Update user streak
     await updateUserStreak(userId);
-    
+
     return docRef.id;
   } catch (error) {
     console.error('Error in legacy addMeal:', error);
@@ -443,19 +449,19 @@ export const getUserDiaryEntries = async (userId, date = null) => {
       } else {
         dateObj = new Date(date);
       }
-      
+
       console.log('Converting date to timestamp range:', dateObj.toString());
-      
+
       // Convert date to timestamp range (start of day to end of day)
       const startOfDay = new Date(dateObj);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(dateObj);
       endOfDay.setHours(23, 59, 59, 999);
-      
+
       console.log('Date range for query:', {
         original: dateObj.toString(),
         start: startOfDay.toString(),
-        end: endOfDay.toString()
+        end: endOfDay.toString(),
       });
 
       q = query(
@@ -622,7 +628,7 @@ export const trackWeight = async (userId, weight, unit = 'kg') => {
   }
 };
 
-// get weight history
+// Get weight history
 export const getUserWeightHistory = async (userId) => {
   try {
     const weightCollection = collection(db, 'userMetrics');
@@ -647,6 +653,337 @@ export const getUserWeightHistory = async (userId) => {
     return weightData;
   } catch (error) {
     console.error('Error fetching weight history:', error);
+    return [];
+  }
+};
+
+// Get sleep history
+export const getUserSleepHistory = async (userId) => {
+  try {
+    const sleepCollection = collection(db, 'userMetrics');
+    const q = query(
+      sleepCollection,
+      where('userId', '==', userId),
+      where('type', '==', 'sleep'),
+      orderBy('date', 'asc')
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    const sleepData = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      date: doc.data().date,
+      bedtime: doc.data().details.bedtime,
+      wakeup: doc.data().details.wakeup,
+      quality: doc.data().details.quality,
+      value: (doc.data().value / 60).toFixed(2),
+      type: doc.data().details?.type || doc.data().type, // Ensure type is included
+    }));
+
+    return sleepData.filter((entry) => entry.type === 'sleep');
+  } catch (error) {
+    console.error('Error fetching sleep history:', error);
+    return [];
+  }
+};
+
+// Get calorie history
+export const getUserCalorieHistory = async (userId) => {
+  try {
+    if (!userId) return [];
+
+    console.log('Fetching calorie history for user:', userId);
+
+    // Query user meals collection
+    const userMealsCollection = collection(db, 'userMeals');
+    const userMealsQuery = query(
+      userMealsCollection,
+      where('userId', '==', userId)
+    );
+
+    const userMealsSnapshot = await getDocs(userMealsQuery);
+    const userMeals = userMealsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      mealId: doc.data().mealId,
+      date: doc.data().date.toDate().toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+      }),
+      amount: doc.data().amount, // The amount of food consumed
+    }));
+
+    console.log('Fetched user meals:', userMeals);
+
+    // Get meal details from "meals" collection
+    const mealIds = [...new Set(userMeals.map((meal) => meal.mealId))];
+
+    const mealsCollection = collection(db, 'meals');
+    const mealsQuery = query(mealsCollection, where('__name__', 'in', mealIds));
+
+    const mealsSnapshot = await getDocs(mealsQuery);
+    const mealsData = mealsSnapshot.docs.reduce((acc, doc) => {
+      acc[doc.id] = doc.data().calories; // Store meal ID -> calorie mapping
+      return acc;
+    }, {});
+
+    console.log('Fetched meal details:', mealsData);
+
+    // Aggregate calories per day
+    const calorieHistory = userMeals.reduce((acc, meal) => {
+      const caloriesPer100g = mealsData[meal.mealId] || 0;
+      const totalCalories = (caloriesPer100g * meal.amount) / 100; // Adjust based on meal amount
+
+      if (!acc[meal.date]) {
+        acc[meal.date] = 0;
+      }
+      acc[meal.date] += totalCalories;
+
+      return acc;
+    }, {});
+
+    console.log('Final Aggregated Calorie Data:', calorieHistory);
+
+    // Convert into an array for charting
+    const formattedData = Object.entries(calorieHistory).map(
+      ([date, value]) => ({
+        date,
+        value,
+      })
+    );
+
+    return formattedData;
+  } catch (error) {
+    console.error('Error fetching calorie history:', error);
+    return [];
+  }
+};
+
+// Get protein history
+export const getUserProteinHistory = async (userId) => {
+  try {
+    if (!userId) return [];
+
+    console.log('Fetching protein history for user:', userId);
+
+    // Query user meals collection
+    const userMealsCollection = collection(db, 'userMeals');
+    const userMealsQuery = query(
+      userMealsCollection,
+      where('userId', '==', userId)
+    );
+    const userMealsSnapshot = await getDocs(userMealsQuery);
+
+    const userMeals = userMealsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      mealId: doc.data().mealId,
+      date: doc.data().date.toDate().toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+      }),
+      amount: doc.data().amount, // The amount of food consumed
+    }));
+
+    console.log('Fetched user meals:', userMeals);
+
+    // Get meal details from "meals" collection (batch query)
+    const mealIds = [...new Set(userMeals.map((meal) => meal.mealId))];
+    const mealsCollection = collection(db, 'meals');
+
+    // Firestore does not allow querying more than 30 IDs at once, so batch if needed
+    const mealsData = {};
+    for (let i = 0; i < mealIds.length; i += 10) {
+      const batchMealIds = mealIds.slice(i, i + 10);
+      const mealsQuery = query(
+        mealsCollection,
+        where('__name__', 'in', batchMealIds)
+      );
+      const mealsSnapshot = await getDocs(mealsQuery);
+
+      mealsSnapshot.docs.forEach((doc) => {
+        mealsData[doc.id] = doc.data().protein; // Store meal ID -> protein mapping
+      });
+    }
+
+    console.log('Fetched meal details:', mealsData);
+
+    // Aggregate protein per day
+    const proteinHistory = userMeals.reduce((acc, meal) => {
+      const proteinPer100g = mealsData[meal.mealId] || 0;
+      const totalProtein = (proteinPer100g * meal.amount) / 100; // Adjust based on meal amount
+
+      if (!acc[meal.date]) {
+        acc[meal.date] = 0;
+      }
+      acc[meal.date] += totalProtein;
+
+      return acc;
+    }, {});
+
+    console.log('Final Aggregated Protein Data:', proteinHistory);
+
+    // Convert into an array for charting
+    const formattedData = Object.entries(proteinHistory).map(
+      ([date, value]) => ({
+        date,
+        value,
+      })
+    );
+
+    return formattedData;
+  } catch (error) {
+    console.error('Error fetching protein history:', error);
+    return [];
+  }
+};
+
+// Get fat history
+export const getUserFatHistory = async (userId) => {
+  try {
+    if (!userId) return [];
+
+    console.log('Fetching fat history for user:', userId);
+
+    // Query user meals collection
+    const userMealsCollection = collection(db, 'userMeals');
+    const userMealsQuery = query(
+      userMealsCollection,
+      where('userId', '==', userId)
+    );
+    const userMealsSnapshot = await getDocs(userMealsQuery);
+
+    const userMeals = userMealsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      mealId: doc.data().mealId,
+      date: doc.data().date.toDate().toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+      }),
+      amount: doc.data().amount, // The amount of food consumed
+    }));
+
+    console.log('Fetched user meals:', userMeals);
+
+    // Get meal details from "meals" collection (batch query)
+    const mealIds = [...new Set(userMeals.map((meal) => meal.mealId))];
+    const mealsCollection = collection(db, 'meals');
+
+    // Firestore does not allow querying more than 30 IDs at once, so batch if needed
+    const mealsData = {};
+    for (let i = 0; i < mealIds.length; i += 10) {
+      const batchMealIds = mealIds.slice(i, i + 10);
+      const mealsQuery = query(
+        mealsCollection,
+        where('__name__', 'in', batchMealIds)
+      );
+      const mealsSnapshot = await getDocs(mealsQuery);
+
+      mealsSnapshot.docs.forEach((doc) => {
+        mealsData[doc.id] = doc.data().fat; // Store meal ID -> fat mapping
+      });
+    }
+
+    console.log('Fetched meal details:', mealsData);
+
+    // Aggregate fat intake per day
+    const fatHistory = userMeals.reduce((acc, meal) => {
+      const fatPer100g = mealsData[meal.mealId] || 0;
+      const totalFat = (fatPer100g * meal.amount) / 100; // Adjust based on meal amount
+
+      if (!acc[meal.date]) {
+        acc[meal.date] = 0;
+      }
+      acc[meal.date] += totalFat;
+
+      return acc;
+    }, {});
+
+    console.log('Final Aggregated Fat Data:', fatHistory);
+
+    // Convert into an array for charting
+    const formattedData = Object.entries(fatHistory).map(([date, value]) => ({
+      date,
+      value,
+    }));
+
+    return formattedData;
+  } catch (error) {
+    console.error('Error fetching fat history:', error);
+    return [];
+  }
+};
+
+// Get carb history
+export const getUserCarbHistory = async (userId) => {
+  try {
+    if (!userId) return [];
+
+    console.log('Fetching carbohydrate history for user:', userId);
+
+    // Query user meals collection
+    const userMealsCollection = collection(db, 'userMeals');
+    const userMealsQuery = query(
+      userMealsCollection,
+      where('userId', '==', userId)
+    );
+    const userMealsSnapshot = await getDocs(userMealsQuery);
+
+    const userMeals = userMealsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      mealId: doc.data().mealId,
+      date: doc.data().date.toDate().toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+      }),
+      amount: doc.data().amount, // The amount of food consumed
+    }));
+
+    console.log('Fetched user meals:', userMeals);
+
+    // Get meal details from "meals" collection (batch query)
+    const mealIds = [...new Set(userMeals.map((meal) => meal.mealId))];
+    const mealsCollection = collection(db, 'meals');
+
+    // Firestore does not allow querying more than 30 IDs at once, so batch if needed
+    const mealsData = {};
+    for (let i = 0; i < mealIds.length; i += 10) {
+      const batchMealIds = mealIds.slice(i, i + 10);
+      const mealsQuery = query(
+        mealsCollection,
+        where('__name__', 'in', batchMealIds)
+      );
+      const mealsSnapshot = await getDocs(mealsQuery);
+
+      mealsSnapshot.docs.forEach((doc) => {
+        mealsData[doc.id] = doc.data().carbs; // Store meal ID -> carb mapping
+      });
+    }
+
+    console.log('Fetched meal details:', mealsData);
+
+    // Aggregate carbohydrate intake per day
+    const carbHistory = userMeals.reduce((acc, meal) => {
+      const carbsPer100g = mealsData[meal.mealId] || 0;
+      const totalCarbs = (carbsPer100g * meal.amount) / 100; // Adjust based on meal amount
+
+      if (!acc[meal.date]) {
+        acc[meal.date] = 0;
+      }
+      acc[meal.date] += totalCarbs;
+
+      return acc;
+    }, {});
+
+    console.log('Final Aggregated Carbohydrate Data:', carbHistory);
+
+    // Convert into an array for charting
+    const formattedData = Object.entries(carbHistory).map(([date, value]) => ({
+      date,
+      value,
+    }));
+
+    return formattedData;
+  } catch (error) {
+    console.error('Error fetching carbohydrate history:', error);
     return [];
   }
 };
@@ -745,23 +1082,27 @@ export const trackExercise = async (
   }
 };
 
-export const getLatestUserMetric = async (userId, metricType, forToday = false) => {
+export const getLatestUserMetric = async (
+  userId,
+  metricType,
+  forToday = false
+) => {
   try {
     if (!userId || !metricType) {
       return null;
     }
 
     const metricsRef = collection(db, 'userMetrics');
-    
+
     let q;
-    
+
     if (forToday) {
       // Get only metrics from today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       q = query(
         metricsRef,
         where('userId', '==', userId),
@@ -770,8 +1111,10 @@ export const getLatestUserMetric = async (userId, metricType, forToday = false) 
         where('date', '<', Timestamp.fromDate(tomorrow)),
         orderBy('date', 'desc')
       );
-      
-      console.log(`Getting latest ${metricType} metric for today (${today.toLocaleDateString()})`);
+
+      console.log(
+        `Getting latest ${metricType} metric for today (${today.toLocaleDateString()})`
+      );
     } else {
       // Get latest metric of all time
       q = query(
@@ -780,27 +1123,29 @@ export const getLatestUserMetric = async (userId, metricType, forToday = false) 
         where('type', '==', metricType),
         orderBy('date', 'desc')
       );
-      
+
       console.log(`Getting latest ${metricType} metric (all time)`);
     }
 
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      console.log(`No ${metricType} metrics found ${forToday ? 'for today' : ''}`);
+      console.log(
+        `No ${metricType} metrics found ${forToday ? 'for today' : ''}`
+      );
       return null;
     }
 
     // Since we can't use limit(1), get the first doc
     const doc = querySnapshot.docs[0];
     const data = doc.data();
-    
+
     console.log(`Found ${metricType} metric: `, {
       id: doc.id,
       date: data.date?.toDate()?.toLocaleDateString() || 'unknown date',
-      value: data.value
+      value: data.value,
     });
-    
+
     return {
       id: doc.id,
       ...data,
@@ -1046,45 +1391,45 @@ export const searchFoodsInDatabase = async (searchTerm, maxResults = 25) => {
 
     console.log(`Searching database for foods matching: "${searchTerm}"`);
     const mealsRef = collection(db, 'meals');
-    
+
     // Convert search term to lowercase for case-insensitive search
     const queryLower = searchTerm.toLowerCase();
-    
+
     // Get all meals (we'll filter in JS since Firestore doesn't support full text search)
     // In a production app, we'd use Algolia, Firebase Extensions, or similar for better text search
     const mealsQuery = query(mealsRef, limit(1000)); // Fetch more meals for better search coverage
     const querySnapshot = await getDocs(mealsQuery);
-    
+
     console.log(`Found ${querySnapshot.size} total meals in database`);
-    
+
     let results = [];
     let debugMatches = [];
-    
+
     querySnapshot.forEach((doc) => {
       const meal = { id: doc.id, ...doc.data() };
-      
+
       // Special debugging for "Chicken" search
-      if (queryLower === "chicken" && meal.name) {
+      if (queryLower === 'chicken' && meal.name) {
         debugMatches.push({
           id: doc.id,
           name: meal.name,
           nameLower: meal.name.toLowerCase(),
-          match: meal.name.toLowerCase().includes(queryLower)
+          match: meal.name.toLowerCase().includes(queryLower),
         });
       }
-      
+
       // Check for matches (full word match, partial word match)
       let isMatch = false;
-      let matchQuality = 0;  // Higher is better
-      
+      let matchQuality = 0; // Higher is better
+
       if (meal.name && typeof meal.name === 'string') {
         const mealNameLower = meal.name.toLowerCase();
-        
+
         // Direct substring match (strongest match)
         if (mealNameLower.includes(queryLower)) {
           isMatch = true;
           matchQuality = 3;
-        } 
+        }
         // Word boundary match (check if any word starts with our query)
         else {
           const words = mealNameLower.split(/\s+/);
@@ -1095,7 +1440,7 @@ export const searchFoodsInDatabase = async (searchTerm, maxResults = 25) => {
               break;
             }
           }
-          
+
           // Partial word match (weakest match but still valid)
           if (!isMatch) {
             for (const word of words) {
@@ -1107,7 +1452,7 @@ export const searchFoodsInDatabase = async (searchTerm, maxResults = 25) => {
             }
           }
         }
-        
+
         if (isMatch) {
           results.push({
             id: meal.id,
@@ -1122,65 +1467,71 @@ export const searchFoodsInDatabase = async (searchTerm, maxResults = 25) => {
             cholesterol: meal.cholesterol,
             foodCategory: meal.source || 'Database',
             source: 'database',
-            matchQuality: matchQuality // Store the match quality for sorting
+            matchQuality: matchQuality, // Store the match quality for sorting
           });
         }
       }
     });
-    
+
     // Log debug info for "Chicken" search
-    if (queryLower === "chicken") {
-      console.log("Debug info for chicken search:", {
+    if (queryLower === 'chicken') {
+      console.log('Debug info for chicken search:', {
         totalDocuments: querySnapshot.size,
         potentialMatches: debugMatches.length,
         matches: results.length,
-        sampleMatches: debugMatches.slice(0, 5)
+        sampleMatches: debugMatches.slice(0, 5),
       });
     }
-    
+
     // Sort by relevance using our match quality scores
     results.sort((a, b) => {
       // First sort by match quality (higher is better)
       if (a.matchQuality !== b.matchQuality) {
         return b.matchQuality - a.matchQuality;
       }
-      
+
       const aName = a.description.toLowerCase();
       const bName = b.description.toLowerCase();
-      
+
       // If same match quality, use the position of the match (earlier is better)
-      if (a.matchQuality >= 2) { // For high quality matches, position matters
+      if (a.matchQuality >= 2) {
+        // For high quality matches, position matters
         const aIndex = aName.indexOf(queryLower);
         const bIndex = bName.indexOf(queryLower);
         if (aIndex !== bIndex) {
           return aIndex - bIndex;
         }
       }
-      
+
       // If everything else is the same, shorter names first
       if (aName.length !== bName.length) {
         return aName.length - bName.length;
       }
-      
+
       // Last resort: alphabetical
       return aName.localeCompare(bName);
     });
-    
+
     // Limit results to requested max
     results = results.slice(0, maxResults);
-    
+
     console.log(`Found ${results.length} matches in database`);
-    
+
     // Final debug logging
     if (results.length > 0) {
-      console.log("Top 3 results:", results.slice(0, 3).map(r => ({
-        name: r.description,
-        matchQuality: r.matchQuality
-      })));
+      console.log(
+        'Top 3 results:',
+        results.slice(0, 3).map((r) => ({
+          name: r.description,
+          matchQuality: r.matchQuality,
+        }))
+      );
     } else {
-      console.log(`No results found for query "${searchTerm}" - consider checking the database population`);
+      console.log(
+        `No results found for query "${searchTerm}" - consider checking the database population`
+      );
     }
-    
+
     return results;
   } catch (error) {
     console.error('Error searching foods in database:', error);

@@ -23,6 +23,7 @@ import Diary from './pages/diary.jsx';
 import Settings from './pages/settings.jsx';
 import DatabaseSetup from './pages/dbSetup.jsx';
 import AboutUs from './pages/about.jsx';
+import Charts from './pages/charts.jsx';
 
 // create root of app and render it into the root div in index.html
 createRoot(document.getElementById('root')).render(
@@ -40,6 +41,7 @@ createRoot(document.getElementById('root')).render(
             <Route path="/settings" element={<Settings />} />
             <Route path="/db-setup" element={<DatabaseSetup />} />
             <Route path="/about" element={<AboutUs />} />
+            <Route path="/charts" element={<Charts />} />
           </Routes>
         </Router>
       </AuthProvider>

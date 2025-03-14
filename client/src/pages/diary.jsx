@@ -963,14 +963,6 @@ function Diary() {
           >
             Dashboard
           </Link>
-          {/*
-          <Link
-            to="/log-meal"
-            className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
-          >
-            Log Meal
-          </Link>
-          */}
           <button
             onClick={() => setIsModalOpen(true)}
             className={`border border-black px-3 py-1 rounded-md ${
@@ -1001,18 +993,33 @@ function Diary() {
           >
             Meal History
           </Link>
+          <Link
+            to="/charts"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Charts
+          </Link>
         </div>
       </div>
-      {/* Page Content */}
-      {/*}
+
+      {/* Page Title */}
       <div
-        className={`border-b border-black flex flex-col items-start py-2 px-6 ${
-          darkMode ? 'bg-slate-700' : 'bg-gray-200'
-        }`}
+        className={`border border-black ${
+          darkMode ? 'bg-slate-800 text-slate-100' : 'bg-gray-100'
+        } px-24 py-4 mx-auto rounded-md mt-10 text-center`}
       >
-        <h1 className="text-xl font-bold">Diary</h1>
+        <h2
+          className={`text-2xl font-bold ${
+            darkMode ? 'text-slate-100' : 'text-gray-900'
+          }`}
+        >
+          Diary
+        </h2>
       </div>
-      */}
 
       {/* Date Navigation */}
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
