@@ -306,17 +306,6 @@ function Settings() {
       }`}
     >
       <NavBar2 />
-
-      {/* Page Content */}
-      {/*}
-      <div
-        className={`border-b border-black flex flex-col items-start py-2 px-6 ${
-          darkMode ? 'bg-slate-700' : 'bg-gray-200'
-        }`}
-      >
-        <h1 className="text-xl font-bold">Settings</h1>
-      </div>
-      */}
       <div
         className={`border-b border-black flex flex-col items-start py-2 px-6 ${
           darkMode ? 'bg-slate-700' : 'bg-gray-200'
@@ -334,26 +323,6 @@ function Settings() {
           >
             Dashboard
           </Link>
-          {/*
-                <Link
-                  to="/log-meal"
-                  className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
-                >
-                  Log Meal
-                </Link>
-                */}
-          {/*}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className={`border border-black px-3 py-1 rounded-md ${
-              darkMode
-                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
-                : 'bg-white hover:bg-[#DECEFF]'
-            } text-sm`}
-          >
-            Log Meal
-          </button>
-          */}
           <Link
             to="/diary"
             className={`border border-black px-3 py-1 rounded-md ${

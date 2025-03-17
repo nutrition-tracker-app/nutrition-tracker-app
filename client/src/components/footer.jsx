@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React from 'react';
 /* eslint-enable no-unused-vars */
-import { FaEnvelope, FaGithub, FaFileAlt, FaLock } from 'react-icons/fa';
+import { FaGithub, FaFileAlt, FaLock, FaUsers } from 'react-icons/fa';
 import { useSettings } from '../context/settingsContext';
 
 function Footer() {
@@ -34,17 +34,17 @@ function Footer() {
 
       {/* Footer Content */}
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-        <div className="flex flex-wrap gap-5 md:gap-8 mb-4 md:mb-0">
+        <div className="flex flex-wrap gap-5 md:gap-6 mb-4 md:mb-0">
           {/* Contact */}
           <a
-            href="#"
+            href="/about"
             className={`flex items-center ${
               darkMode
                 ? 'text-slate-100 hover:text-green-300'
                 : 'text-gray-800 hover:text-green-600'
             } transition-colors duration-200`}
           >
-            <FaEnvelope className="mr-2" /> Contact
+            <FaUsers className="mr-2" /> About Us
           </a>
 
           {/* Github */}

@@ -281,14 +281,6 @@ function MealHistory() {
           >
             Dashboard
           </Link>
-          {/*
-                <Link
-                  to="/log-meal"
-                  className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
-                >
-                  Log Meal
-                </Link>
-                */}
           <button
             onClick={() => setIsModalOpen(true)}
             className={`border border-black px-3 py-1 rounded-md ${
@@ -318,6 +310,16 @@ function MealHistory() {
             } text-sm`}
           >
             Meal History
+          </Link>
+          <Link
+            to="/charts"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Charts
           </Link>
         </div>
       </div>

@@ -195,25 +195,6 @@ function Home() {
                   >
                     See your progress in real-time
                   </div>
-                  {/*
-                  <svg
-                    className="w-6 h-6 ml-2 mt-1 hidden"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      className="animated-path"
-                      d="M13 7l5 5-5 5M5 12h13"
-                      stroke={darkMode ? '#4ade80' : '#16a34a'}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  */}
                 </div>
               </div>
             </div>

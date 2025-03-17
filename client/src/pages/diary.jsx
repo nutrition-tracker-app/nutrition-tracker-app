@@ -114,14 +114,20 @@ function Diary() {
           dateParts[1] - 1,
           dateParts[2]
         );
-        console.log('Created date object for meals query:', selectedDateObj.toString());
+        console.log(
+          'Created date object for meals query:',
+          selectedDateObj.toString()
+        );
 
         // Fetch meals for selected date
         const userMeals = await getUserMealsByDate(
           currentUser.uid,
           selectedDateObj
         );
-        console.log(`Found ${userMeals.length} meals for ${selectedDate}`, userMeals);
+        console.log(
+          `Found ${userMeals.length} meals for ${selectedDate}`,
+          userMeals
+        );
         setMeals(userMeals);
 
         // Fetch metrics for selected date
@@ -957,14 +963,6 @@ function Diary() {
           >
             Dashboard
           </Link>
-          {/*
-          <Link
-            to="/log-meal"
-            className={`border border-black px-3 py-1 rounded-md ${darkMode ? 'bg-slate-800 text-slate-100 hover:bg-slate-600' : 'bg-white hover:bg-[#DECEFF]'} text-sm`}
-          >
-            Log Meal
-          </Link>
-          */}
           <button
             onClick={() => setIsModalOpen(true)}
             className={`border border-black px-3 py-1 rounded-md ${
@@ -995,18 +993,33 @@ function Diary() {
           >
             Meal History
           </Link>
+          <Link
+            to="/charts"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Charts
+          </Link>
         </div>
       </div>
-      {/* Page Content */}
-      {/*}
+
+      {/* Page Title */}
       <div
-        className={`border-b border-black flex flex-col items-start py-2 px-6 ${
-          darkMode ? 'bg-slate-700' : 'bg-gray-200'
-        }`}
+        className={`border border-black ${
+          darkMode ? 'bg-slate-800 text-slate-100' : 'bg-gray-100'
+        } px-24 py-4 mx-auto rounded-md mt-10 text-center`}
       >
-        <h1 className="text-xl font-bold">Diary</h1>
+        <h2
+          className={`text-2xl font-bold ${
+            darkMode ? 'text-slate-100' : 'text-gray-900'
+          }`}
+        >
+          Diary
+        </h2>
       </div>
-      */}
 
       {/* Date Navigation */}
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -1029,7 +1042,7 @@ function Diary() {
           onChange={handleDateChange}
           className={`px-3 py-1 rounded-md border ${
             darkMode
-              ? 'bg-slate-700 border-slate-600 text-white'
+              ? 'bg-slate-700 border-slate-600 text-white [color-scheme:dark]'
               : 'bg-white border-gray-300'
           }`}
         />
@@ -2015,30 +2028,35 @@ function Diary() {
           // Force a re-fetch of diary data after meal is added
           const fetchDiaryDataAfterAdd = async () => {
             if (!currentUser) return;
-            console.log('Refreshing meals after adding a new meal for date:', selectedDate);
-            
+            console.log(
+              'Refreshing meals after adding a new meal for date:',
+              selectedDate
+            );
+
             try {
               // Convert selected date string to a date object
               const dateParts = selectedDate.split('-').map(Number);
               const selectedDateObj = new Date(
                 dateParts[0],
-                dateParts[1] - 1, 
+                dateParts[1] - 1,
                 dateParts[2]
               );
-              
+
               // Fetch updated meals for the selected date
               const updatedMeals = await getUserMealsByDate(
                 currentUser.uid,
                 selectedDateObj
               );
-              
-              console.log(`Fetched ${updatedMeals.length} meals after modal closed`);
+
+              console.log(
+                `Fetched ${updatedMeals.length} meals after modal closed`
+              );
               setMeals(updatedMeals);
             } catch (error) {
               console.error('Error refreshing meals after add:', error);
             }
           };
-          
+
           // Call the function to refresh meals
           fetchDiaryDataAfterAdd();
         }}
