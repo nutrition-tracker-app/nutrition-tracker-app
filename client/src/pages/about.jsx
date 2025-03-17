@@ -79,10 +79,7 @@ function AboutUs() {
                 darkMode ? 'text-slate-400' : 'text-gray-600'
               }`}
             >
-              Kevin Description Lorem ipsum dolor sit amet consectetur,
-              adipisicing elit. Nobis voluptatum eveniet enim accusamus, quasi
-              laudantium soluta dolore repudiandae fuga, quae natus delectus
-              harum debitis excepturi obcaecati nostrum ut suscipit. Autem!
+              watch one piece, it will change your life
             </p>
           </div>
         </div>
@@ -101,9 +98,7 @@ function AboutUs() {
               <div className="particle"></div>
               <div className="particle"></div>
             </div>
-            <h3 className="text-xl font-bold mb-8">
-              Dedicated to [Dog's Name]
-            </h3>
+            <h3 className="text-xl font-bold mb-8">Shoutout Eddie's Dog</h3>
             <img
               src={EddiesDogImage}
               alt="[name of dog]"
@@ -114,7 +109,7 @@ function AboutUs() {
                 darkMode ? 'text-slate-400' : 'text-gray-600'
               }`}
             >
-              This project is dedicated to Eddies dog, [name], ...
+              shout out ma dawg
             </p>
           </div>
         </div>
