@@ -197,7 +197,7 @@ function Charts() {
         }`}
       >
         {/* Navigation Buttons */}
-        <div className="flex space-x-4 m-1">
+        <div className="flex flex-wrap justify-start gap-2 w-full px-6 mt-2">
           <Link
             to="/dashboard"
             className={`border border-black px-3 py-1 rounded-md ${
