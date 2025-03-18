@@ -41,7 +41,7 @@ function AboutUs() {
           >
             <img
               src={EddieImage}
-              alt="Eddie"
+              alt="profile picture of eddie"
               className={`w-32 h-32 mx-auto rounded-full border-2 ${
                 darkMode ? 'border-white' : 'border-gray-600'
               }`}
@@ -68,7 +68,7 @@ function AboutUs() {
           >
             <img
               src={KevinImage}
-              alt="Kevin"
+              alt="profile picture of kevin"
               className={`w-32 h-32 mx-auto rounded-full border-2 ${
                 darkMode ? 'border-white' : 'border-gray-600'
               }`}
