@@ -1036,7 +1036,11 @@ function Diary() {
         >
           ← Previous Day
         </button>
+        <label htmlFor="date-picker" className="sr-only">
+          Select Date
+        </label>
         <input
+          id="date-picker"
           type="date"
           value={selectedDate}
           onChange={handleDateChange}
@@ -1779,9 +1783,12 @@ function Diary() {
           >
             <h3 className="text-lg font-bold mb-4">Track Weight</h3>
             <div className="mb-4">
-              <label className="block font-medium mb-1">Weight</label>
+              <label htmlFor="weight-input" className="block font-medium mb-1">
+                Weight
+              </label>
               <div className="flex items-center gap-2">
                 <input
+                  id="weight-input"
                   type="number"
                   value={weightData.weight}
                   onChange={(e) =>
@@ -1796,7 +1803,11 @@ function Diary() {
                   min="0"
                   step="0.1"
                 />
+                <label htmlFor="weight-unit" className="sr-only">
+                  Select Weight Unit
+                </label>
                 <select
+                  id="weight-unit"
                   value={weightData.unit}
                   onChange={(e) =>
                     setWeightData({ ...weightData, unit: e.target.value })
@@ -1842,8 +1853,11 @@ function Diary() {
           >
             <h3 className="text-lg font-bold mb-4">Track Sleep</h3>
             <div className="mb-4">
-              <label className="block font-medium mb-1">Bedtime</label>
+              <label htmlFor="bedtime-input" className="block font-medium mb-1">
+                Bedtime
+              </label>
               <input
+                id="bedtime-input"
                 type="datetime-local"
                 value={sleepData.bedtime}
                 onChange={(e) =>
@@ -1857,8 +1871,14 @@ function Diary() {
               />
             </div>
             <div className="mb-4">
-              <label className="block font-medium mb-1">Wake Time</label>
+              <label
+                htmlFor="waketime-input"
+                className="block font-medium mb-1"
+              >
+                Wake Time
+              </label>
               <input
+                id="waketime-input"
                 type="datetime-local"
                 value={sleepData.wakeup}
                 onChange={(e) =>
@@ -1872,10 +1892,14 @@ function Diary() {
               />
             </div>
             <div className="mb-4">
-              <label className="block font-medium mb-1">
+              <label
+                htmlFor="sleep-quality-input"
+                className="block font-medium mb-1"
+              >
                 Sleep Quality (1-10)
               </label>
               <input
+                id="sleep-quality-input"
                 type="range"
                 min="1"
                 max="10"
@@ -1921,8 +1945,14 @@ function Diary() {
           >
             <h3 className="text-lg font-bold mb-4">Track Exercise</h3>
             <div className="mb-4">
-              <label className="block font-medium mb-1">Category</label>
+              <label
+                htmlFor="excercise-category-input"
+                className="block font-medium mb-1"
+              >
+                Category
+              </label>
               <select
+                id="excercise-category-input"
                 value={exerciseData.category}
                 onChange={(e) =>
                   setExerciseData({ ...exerciseData, category: e.target.value })
@@ -1941,10 +1971,14 @@ function Diary() {
               </select>
             </div>
             <div className="mb-4">
-              <label className="block font-medium mb-1">
+              <label
+                htmlFor="duration-input"
+                className="block font-medium mb-1"
+              >
                 Duration (minutes)
               </label>
               <input
+                id="duration-input"
                 type="number"
                 value={exerciseData.duration}
                 onChange={(e) =>
@@ -1960,8 +1994,14 @@ function Diary() {
               />
             </div>
             <div className="mb-4">
-              <label className="block font-medium mb-1">Intensity</label>
+              <label
+                htmlFor="intensity-input"
+                className="block font-medium mb-1"
+              >
+                Intensity
+              </label>
               <select
+                id="intensity-input"
                 value={exerciseData.intensity}
                 onChange={(e) =>
                   setExerciseData({
@@ -1982,10 +2022,14 @@ function Diary() {
               </select>
             </div>
             <div className="mb-4">
-              <label className="block font-medium mb-1">
+              <label
+                htmlFor="calorie-burn-input"
+                className="block font-medium mb-1"
+              >
                 Calories Burned (optional)
               </label>
               <input
+                id="calorie-burn-input"
                 type="number"
                 value={exerciseData.calories}
                 onChange={(e) =>

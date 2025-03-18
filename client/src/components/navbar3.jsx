@@ -381,6 +381,7 @@ function NavBar3() {
             : 'bg-white text-green-600 border border-gray-200 hover:bg-gray-50'
         }`}
         onClick={() => setIsOpen(!isOpen)}
+        aria-label="Profile Menu"
       >
         <svg
           className="w-5 h-5"

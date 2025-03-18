@@ -343,6 +343,16 @@ function Settings() {
           >
             Meal History
           </Link>
+          <Link
+            to="/charts"
+            className={`border border-black px-3 py-1 rounded-md ${
+              darkMode
+                ? 'bg-slate-800 text-slate-100 hover:bg-slate-600'
+                : 'bg-white hover:bg-[#DECEFF]'
+            } text-sm`}
+          >
+            Charts
+          </Link>
         </div>
       </div>
 
@@ -375,8 +385,11 @@ function Settings() {
               </h2>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">Display Name</label>
+                <label htmlFor="name-input" className="block font-medium mb-1">
+                  Display Name
+                </label>
                 <input
+                  id="name-input"
                   type="text"
                   name="displayName"
                   value={profile.displayName}
@@ -390,10 +403,14 @@ function Settings() {
               </div>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">
+                <label
+                  htmlFor="profile-url-input"
+                  className="block font-medium mb-1"
+                >
                   Profile Picture URL
                 </label>
                 <input
+                  id="profile-url-input"
                   type="text"
                   name="photoURL"
                   value={profile.photoURL}
@@ -417,8 +434,11 @@ function Settings() {
               </div>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">Sex</label>
+                <label htmlFor="sex-input" className="block font-medium mb-1">
+                  Sex
+                </label>
                 <select
+                  id="sex-input"
                   name="sex"
                   value={profile.sex}
                   onChange={handleChange}
@@ -446,9 +466,15 @@ function Settings() {
               </h2>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">Height</label>
+                <label
+                  htmlFor="height-input"
+                  className="block font-medium mb-1"
+                >
+                  Height
+                </label>
                 <div className="flex items-center gap-2">
                   <input
+                    id="height-input"
                     type="number"
                     name="height"
                     value={profile.height}
@@ -460,7 +486,11 @@ function Settings() {
                         : 'bg-white border-gray-300'
                     }`}
                   />
+                  <label htmlFor="height-unit-input" className="sr-only">
+                    Height Unit Input
+                  </label>
                   <select
+                    id="height-unit-input"
                     name="heightUnit"
                     value={profile.heightUnit}
                     onChange={handleUnitChange}
@@ -477,9 +507,15 @@ function Settings() {
               </div>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">Weight</label>
+                <label
+                  htmlFor="weight-input"
+                  className="block font-medium mb-1"
+                >
+                  Weight
+                </label>
                 <div className="flex items-center gap-2">
                   <input
+                    id="weight-input"
                     type="number"
                     name="weight"
                     value={profile.weight}
@@ -491,7 +527,11 @@ function Settings() {
                         : 'bg-white border-gray-300'
                     }`}
                   />
+                  <label htmlFor="weight-unit-input" className="sr-only">
+                    Weight Unit Input
+                  </label>
                   <select
+                    id="weight-unit-input"
                     name="weightUnit"
                     value={profile.weightUnit}
                     onChange={handleUnitChange}
@@ -508,8 +548,11 @@ function Settings() {
               </div>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">Age</label>
+                <label htmlFor="age-input" className="block font-medium mb-1">
+                  Age
+                </label>
                 <input
+                  id="age-input"
                   type="number"
                   name="age"
                   value={profile.age}
@@ -536,8 +579,14 @@ function Settings() {
               </h2>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">Activity Level</label>
+                <label
+                  htmlFor="activity-level-input"
+                  className="block font-medium mb-1"
+                >
+                  Activity Level
+                </label>
                 <select
+                  id="activity-level-input"
                   name="activityLevel"
                   value={profile.activityLevel}
                   onChange={handleChange}
@@ -564,8 +613,14 @@ function Settings() {
               </div>
 
               <div className="mb-4">
-                <label className="block font-medium mb-1">Weight Goal</label>
+                <label
+                  htmlFor="weight-goal-input"
+                  className="block font-medium mb-1"
+                >
+                  Weight Goal
+                </label>
                 <select
+                  id="weight-goal-input"
                   name="weightGoal"
                   value={profile.weightGoal}
                   onChange={handleChange}
@@ -614,8 +669,13 @@ function Settings() {
                       Override the calculated value with your own target
                     </p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+
+                  <label
+                    htmlFor="custom-calorie-button"
+                    className="relative inline-flex items-center cursor-pointer"
+                  >
                     <input
+                      id="custom-calorie-button"
                       type="checkbox"
                       name="useCustomCalories"
                       className="sr-only peer"
@@ -632,10 +692,14 @@ function Settings() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block font-medium mb-1">
+                  <label
+                    htmlFor="daily-calorie-target-input"
+                    className="block font-medium mb-1"
+                  >
                     Daily Calorie Target
                   </label>
                   <input
+                    id="daily-calorie-target-input"
                     type="number"
                     name="targetCalories"
                     value={profile.targetCalories}
